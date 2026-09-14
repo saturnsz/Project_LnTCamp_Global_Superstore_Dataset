@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StoreIQ Admin — Global Superstore Dashboard</title>
+  <meta name="description"
+    content="Private admin dashboard for Global Superstore Dataset analytics and AI-powered transaction prediction.">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+
+<body>
+
+  <div class="app-layout">
+    <div class="mobile-overlay" id="mobileOverlay" onclick="toggleMobileMenu()"></div>
+
+    <!-- ─── Sidebar ───────────────────────────── -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-icon"></div>
+        <div class="logo-text">StoreIQ Admin</div>
+        <!-- Close button for mobile -->
+        <button class="sidebar-mobile-close" onclick="toggleMobileMenu()" aria-label="Close menu"
+          style="display:none; margin-left:auto; background:none; border:none; color:var(--text-secondary); cursor:pointer; padding:4px; border-radius:6px; transition:var(--transition);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">Analytics</div>
+
+        <div class="nav-item active" data-page="dashboard" onclick="navigateTo('dashboard')">
+          <span class="nav-icon"></span>
+          <span class="nav-label">Dashboard</span>
+        </div>
+
+        <div class="nav-item" data-page="orders" onclick="navigateTo('orders')">
+          <span class="nav-icon"></span>
+          <span class="nav-label">Orders</span>
+        </div>
+
+        <div class="nav-item" data-page="products" onclick="navigateTo('products')">
+          <span class="nav-icon"></span>
+          <span class="nav-label">Products</span>
+        </div>
+
+        <div class="nav-item" data-page="customers" onclick="navigateTo('customers')">
+          <span class="nav-icon"></span>
+          <span class="nav-label">Customers</span>
+        </div>
+
+        <div class="nav-item" data-page="locations" onclick="navigateTo('locations')">
+          <span class="nav-icon"></span>
+          <span class="nav-label">Locations</span>
+        </div>
+
+        <div class="nav-section-label" style="margin-top:20px;">Intelligence</div>
+
+        <div class="nav-item" data-page="ai" onclick="navigateTo('ai')">
+          <span class="nav-icon"></span>
+          <span class="nav-label">AI Predictor</span>
+        </div>
+
+      </nav>
+
+      <div class="sidebar-footer">
+        <button class="collapse-btn" onclick="toggleSidebar()">
+          <span style="font-size:16px;"></span>
+          <span class="collapse-btn-label">Collapse</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- ─── Main Content ──────────────────────── -->
+    <div class="main-content" id="mainContent">
+
+      <!-- Top Bar -->
+      <header class="topbar">
+        <button class="hamburger-btn" id="mobileMenuBtn" onclick="toggleMobileMenu()" aria-label="Open menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
+        <div>
+          <div class="topbar-title" id="topbarTitle">Dashboard</div>
+          <div class="topbar-subtitle" id="topbarSubtitle">Global Superstore Analytics</div>
+        </div>
+
+        <div class="topbar-actions" style="margin-left:auto;">
+          <div class="search-bar" id="topSearchBar" style="display:none;">
+            <span></span>
+            <input type="text" id="topSearchInput" placeholder="Search...">
+          </div>
+          <button class="topbar-btn" data-tooltip="Refresh" onclick="refreshCurrentPage()"></button>
+          <button class="topbar-btn" data-tooltip="Settings"></button>
+          <button class="topbar-btn" data-tooltip="Notifications"></button>
+          <div class="admin-avatar" data-tooltip="Admin">A</div>
+        </div>
+      </header>
+
+      <!-- Page Content -->
+      <div class="page-content">
+
+        <!-- ══════════════════════════════════════
+           PAGE: DASHBOARD
+      ═══════════════════════════════════════ -->
+        <div class="page active" id="page-dashboard">
+
+          <!-- Greeting -->
+          <div class="greeting-section">
+            <div class="greeting-avatar"></div>
+            <div>
+              <div class="greeting-title">Hello, Admin! </div>
+              <div class="greeting-sub">Here's what's happening in your Global Superstore today.</div>
+            </div>
+            <div class="greeting-stats" id="greetingStats">
+              <div class="greeting-stat">
+                <div class="greeting-stat-val" id="gStatOrders">—</div>
+                <div class="greeting-stat-lbl">Total Orders</div>
+              </div>
+              <div class="greeting-stat">
+                <div class="greeting-stat-val" id="gStatCustomers">—</div>
+                <div class="greeting-stat-lbl">Customers</div>
+              </div>
+              <div class="greeting-stat">
+                <div class="greeting-stat-val" id="gStatItems">—</div>
+                <div class="greeting-stat-lbl">Line Items</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- KPI Cards -->
+          <div class="kpi-grid">
+            <div class="kpi-card blue">
+              <div class="kpi-header">
+                <div class="kpi-label">Total Revenue</div>
+                <div class="kpi-icon"></div>
+              </div>
+              <div class="kpi-value" id="kpiRevenue">—</div>
+              <div class="kpi-footer"><span class="badge-up">All Time</span> Gross Sales</div>
+            </div>
+            <div class="kpi-card green">
+              <div class="kpi-header">
+                <div class="kpi-label">Total Profit</div>
+                <div class="kpi-icon"></div>
+              </div>
+              <div class="kpi-value" id="kpiProfit">—</div>
+              <div class="kpi-footer"><span class="badge-up">Net</span> After discount</div>
+            </div>
+            <div class="kpi-card purple">
+              <div class="kpi-header">
+                <div class="kpi-label">Total Orders</div>
+                <div class="kpi-icon"></div>
+              </div>
+              <div class="kpi-value" id="kpiOrders">—</div>
+              <div class="kpi-footer"><span class="badge-neutral">Unique</span> order IDs</div>
+            </div>
+            <div class="kpi-card orange">
+              <div class="kpi-header">
+                <div class="kpi-label">Customers</div>
+                <div class="kpi-icon"></div>
+              </div>
+              <div class="kpi-value" id="kpiCustomers">—</div>
+              <div class="kpi-footer"><span class="badge-neutral">Unique</span> customer IDs</div>
+            </div>
+            <div class="kpi-card cyan">
+              <div class="kpi-header">
+                <div class="kpi-label">Avg Discount</div>
+                <div class="kpi-icon"></div>
+              </div>
+              <div class="kpi-value" id="kpiDiscount">—</div>
+              <div class="kpi-footer"><span class="badge-down">Avg</span> per transaction</div>
+            </div>
+            <div class="kpi-card red">
+              <div class="kpi-header">
+                <div class="kpi-label">Shipping Cost</div>
+                <div class="kpi-icon"></div>
+              </div>
+              <div class="kpi-value" id="kpiShipping">—</div>
+              <div class="kpi-footer"><span class="badge-down">Total</span> logistics spend</div>
+            </div>
+          </div>
+
+          <!-- Charts Row 1 -->
+          <div class="charts-grid">
+            <div class="chart-card col-8">
+              <div class="chart-header">
+                <div>
+                  <div class="chart-title">Revenue & Profit Trend</div>
+                  <div class="chart-subtitle">Annual sales vs profit comparison</div>
+                </div>
+                <span class="chart-badge">By Year</span>
+              </div>
+              <div class="chart-container" style="height:260px;">
+                <canvas id="chartRevenueYear"></canvas>
+              </div>
+            </div>
+            <div class="chart-card col-4">
+              <div class="chart-header">
+                <div>
+                  <div class="chart-title">Sales by Category</div>
+                  <div class="chart-subtitle">Breakdown by product group</div>
+                </div>
+              </div>
+              <div class="chart-container" style="height:200px;">
+                <canvas id="chartCategory"></canvas>
+              </div>
+              <div id="categoryLegend" style="margin-top:14px;"></div>
+            </div>
+          </div>
+
+          <!-- Charts Row 2 -->
+          <div class="charts-grid">
+            <div class="chart-card col-6">
+              <div class="chart-header">
+                <div>
+                  <div class="chart-title">Profit by Market</div>
+                  <div class="chart-subtitle">Global market performance</div>
+                </div>
+                <span class="chart-badge">Global</span>
+              </div>
+              <div class="chart-container" style="height:240px;">
+                <canvas id="chartMarket"></canvas>
+              </div>
+            </div>
+            <div class="chart-card col-6">
+              <div class="chart-header">
+                <div>
+                  <div class="chart-title">Top Sub-Categories</div>
+                  <div class="chart-subtitle">By total revenue</div>
+                </div>
+                <span class="chart-badge">Top 10</span>
+              </div>
+              <div class="chart-container" style="height:240px;">
+                <canvas id="chartSubcat"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Charts Row 3 -->
+          <div class="charts-grid">
+            <div class="chart-card col-4">
+              <div class="chart-header">
+                <div>
+                  <div class="chart-title">Ship Mode</div>
+                  <div class="chart-subtitle">Orders by shipping method</div>
+                </div>
+              </div>
+              <div class="chart-container" style="height:200px;">
+                <canvas id="chartShipMode"></canvas>
+              </div>
+            </div>
+            <div class="chart-card col-4">
+              <div class="chart-header">
+                <div>
+                  <div class="chart-title">Customer Segments</div>
+                  <div class="chart-subtitle">Revenue by segment</div>
+                </div>
+              </div>
+              <div class="chart-container" style="height:200px;">
+                <canvas id="chartSegment"></canvas>
+              </div>
+            </div>
+            <div class="chart-card col-4">
+              <div class="chart-header">
+                <div>
+                  <div class="chart-title">Region Performance</div>
+                  <div class="chart-subtitle">Sales by region</div>
+                </div>
+              </div>
+              <div class="chart-container" style="height:200px;">
+                <canvas id="chartRegion"></canvas>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ══════════════════════════════════════
+           PAGE: ORDERS
+      ═══════════════════════════════════════ -->
+        <div class="page" id="page-orders">
+          <div class="page-header">
+            <h1> Orders</h1>
+            <p>Browse and search all transactions in the Global Superstore dataset.</p>
+          </div>
+          <div class="table-card">
+            <div class="table-toolbar">
+              <div class="search-bar">
+                <span></span>
+                <input type="text" id="ordersSearch" placeholder="Search orders..." oninput="debounceSearch('orders')">
+              </div>
+              <div class="toolbar-spacer"></div>
+              <div class="table-info" id="ordersInfo"></div>
+              <button class="export-btn" onclick="exportTable('orders')"> Export CSV</button>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="data-table" id="ordersTable">
+                <thead>
+                  <tr>
+                    <th>Order ID</th>
+                    <th>Customer</th>
+                    <th>Segment</th>
+                    <th>Category</th>
+                    <th>Sub-Category</th>
+                    <th>Sales</th>
+                    <th>Profit</th>
+                    <th>Discount</th>
+                    <th>Qty</th>
+                    <th>Ship Mode</th>
+                    <th>Priority</th>
+                    <th>Market</th>
+                    <th>Country</th>
+                    <th>Order Date</th>
+                  </tr>
+                </thead>
+                <tbody id="ordersTbody">
+                  <tr>
+                    <td colspan="14" style="text-align:center;padding:40px;color:var(--text-muted);">Loading data...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="pagination" id="ordersPagination"></div>
+          </div>
+        </div>
+
+        <!-- ══════════════════════════════════════
+           PAGE: PRODUCTS
+      ═══════════════════════════════════════ -->
+        <div class="page" id="page-products">
+          <div class="page-header">
+            <h1> Products</h1>
+            <p>All products in the Global Superstore catalog with performance metrics.</p>
+          </div>
+          <div class="table-card">
+            <div class="table-toolbar">
+              <div class="search-bar">
+                <span></span>
+                <input type="text" id="productsSearch" placeholder="Search products..."
+                  oninput="debounceSearch('products')">
+              </div>
+              <div class="toolbar-spacer"></div>
+              <div class="table-info" id="productsInfo"></div>
+              <button class="export-btn" onclick="exportTable('products')"> Export CSV</button>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="data-table" id="productsTable">
+                <thead>
+                  <tr>
+                    <th>Product ID</th>
+                    <th>Category</th>
+                    <th>Sub-Category</th>
+                    <th>Product Name</th>
+                    <th>Avg Sales</th>
+                    <th>Total Profit</th>
+                    <th>Times Sold</th>
+                  </tr>
+                </thead>
+                <tbody id="productsTbody">
+                  <tr>
+                    <td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted);">Loading data...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="pagination" id="productsPagination"></div>
+          </div>
+        </div>
+
+        <!-- ══════════════════════════════════════
+           PAGE: CUSTOMERS
+      ═══════════════════════════════════════ -->
+        <div class="page" id="page-customers">
+          <div class="page-header">
+            <h1> Customers</h1>
+            <p>Customer directory with spending and loyalty metrics.</p>
+          </div>
+          <div class="table-card">
+            <div class="table-toolbar">
+              <div class="search-bar">
+                <span></span>
+                <input type="text" id="customersSearch" placeholder="Search customers..."
+                  oninput="debounceSearch('customers')">
+              </div>
+              <div class="toolbar-spacer"></div>
+              <div class="table-info" id="customersInfo"></div>
+              <button class="export-btn" onclick="exportTable('customers')"> Export CSV</button>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="data-table" id="customersTable">
+                <thead>
+                  <tr>
+                    <th>Customer ID</th>
+                    <th>Name</th>
+                    <th>Segment</th>
+                    <th>Total Orders</th>
+                    <th>Total Sales</th>
+                    <th>Total Profit</th>
+                    <th>Avg Discount</th>
+                  </tr>
+                </thead>
+                <tbody id="customersTbody">
+                  <tr>
+                    <td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted);">Loading data...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="pagination" id="customersPagination"></div>
+          </div>
+        </div>
+
+        <!-- ══════════════════════════════════════
+           PAGE: LOCATIONS
+      ═══════════════════════════════════════ -->
+        <div class="page" id="page-locations">
+          <div class="page-header">
+            <h1> Locations</h1>
+            <p>Geographic distribution of orders across global markets.</p>
+          </div>
+          <div class="table-card">
+            <div class="table-toolbar">
+              <div class="search-bar">
+                <span></span>
+                <input type="text" id="locationsSearch" placeholder="Search locations..."
+                  oninput="debounceSearch('locations')">
+              </div>
+              <div class="toolbar-spacer"></div>
+              <div class="table-info" id="locationsInfo"></div>
+              <button class="export-btn" onclick="exportTable('locations')"> Export CSV</button>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="data-table" id="locationsTable">
+                <thead>
+                  <tr>
+                    <th>City</th>
+                    <th>State</th>
+                    <th>Country</th>
+                    <th>Region</th>
+                    <th>Market</th>
+                    <th>Total Orders</th>
+                    <th>Total Sales</th>
+                    <th>Total Profit</th>
+                  </tr>
+                </thead>
+                <tbody id="locationsTbody">
+                  <tr>
+                    <td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted);">Loading data...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="pagination" id="locationsPagination"></div>
+          </div>
+        </div>
+
+        <!-- ══════════════════════════════════════
+           PAGE: AI PREDICTOR
+      ═══════════════════════════════════════ -->
+        <div class="page" id="page-ai">
+          <div class="page-header">
+            <h1> AI Transaction Predictor</h1>
+            <p>Powered by XGBoost — Classify profit/loss status and estimate profit value for any transaction.</p>
+          </div>
+
+          <div class="ai-layout">
+
+            <!-- ─ Panel 1: Classification ─ -->
+            <div class="ai-panel">
+              <div class="ai-panel-header">
+                <div class="ai-panel-icon clf"></div>
+                <div>
+                  <div class="ai-panel-title">Detektor Status Transaksi</div>
+                  <div class="ai-panel-desc">Klasifikasi: Apakah transaksi ini PROFIT atau LOSS?</div>
+                </div>
+              </div>
+              <div class="ai-form">
+                <div class="form-grid" id="clfFormGrid">
+                  <div class="form-group">
+                    <label class="form-label">Sales (USD)</label>
+                    <input type="number" class="form-control" id="clf-sales" value="2000" min="0" step="0.01">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Diskon (%)</label>
+                    <div class="slider-container">
+                      <input type="range" class="form-range" id="clf-discount-range" min="0" max="100" step="1"
+                        value="20" oninput="syncSlider('clf-discount', this.value)">
+                      <span class="slider-value" id="clf-discount-val">20%</span>
+                    </div>
+                    <input type="hidden" id="clf-discount" value="20">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Biaya Kirim (USD)</label>
+                    <input type="number" class="form-control" id="clf-shipping" value="15" min="0" step="0.01">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Kuantitas</label>
+                    <input type="number" class="form-control" id="clf-quantity" value="3" min="1" step="1">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Kategori</label>
+                    <select class="form-control" id="clf-category" onchange="updateSubcategory('clf')">
+                      <option value="Furniture">Furniture</option>
+                      <option value="Office Supplies" selected>Office Supplies</option>
+                      <option value="Technology">Technology</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Sub-Kategori</label>
+                    <select class="form-control" id="clf-subcategory"></select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Segment</label>
+                    <select class="form-control" id="clf-segment">
+                      <option value="Consumer" selected>Consumer</option>
+                      <option value="Corporate">Corporate</option>
+                      <option value="Home Office">Home Office</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Market</label>
+                    <select class="form-control" id="clf-market">
+                      <option value="US" selected>US</option>
+                      <option value="EU">EU</option>
+                      <option value="APAC">APAC</option>
+                      <option value="LATAM">LATAM</option>
+                      <option value="EMEA">EMEA</option>
+                      <option value="Africa">Africa</option>
+                      <option value="Canada">Canada</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Ship Mode</label>
+                    <select class="form-control" id="clf-shipmode">
+                      <option value="Standard Class" selected>Standard Class</option>
+                      <option value="Second Class">Second Class</option>
+                      <option value="First Class">First Class</option>
+                      <option value="Same Day">Same Day</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Order Priority</label>
+                    <select class="form-control" id="clf-priority">
+                      <option value="Medium" selected>Medium</option>
+                      <option value="Low">Low</option>
+                      <option value="High">High</option>
+                      <option value="Critical">Critical</option>
+                    </select>
+                  </div>
+                  <div class="form-group full">
+                    <label class="form-label">Region</label>
+                    <select class="form-control" id="clf-region">
+                      <option value="West" selected>West</option>
+                      <option value="East">East</option>
+                      <option value="Central">Central</option>
+                      <option value="South">South</option>
+                      <option value="North">North</option>
+                      <option value="EMEA">EMEA</option>
+                      <option value="EU">EU (deprecated - use EMEA)</option>
+                      <option value="Southeast Asia">Southeast Asia</option>
+                      <option value="North Asia">North Asia</option>
+                      <option value="Oceania">Oceania</option>
+                      <option value="Central Asia">Central Asia</option>
+                      <option value="Caribbean">Caribbean</option>
+                      <option value="Canada">Canada</option>
+                    </select>
+                  </div>
+                </div>
+
+                <button class="predict-btn clf" id="clfPredictBtn" onclick="predictClassify()">
+                  <span class="btn-text"> Deteksi Status Transaksi</span>
+                </button>
+
+                <div class="ai-result" id="clfResult">
+                  <div class="result-label">Hasil Prediksi Klasifikasi</div>
+                  <div class="result-main">
+                    <div class="result-icon" id="clfResultIcon">—</div>
+                    <div>
+                      <div class="result-value" id="clfResultValue">—</div>
+                      <div class="result-confidence" id="clfResultConf">—</div>
+                    </div>
+                  </div>
+                  <div class="confidence-bar">
+                    <div class="confidence-bar-label">
+                      <span>Probabilitas PROFIT</span>
+                      <span id="clfProfitPct">—</span>
+                    </div>
+                    <div class="bar-track">
+                      <div class="bar-fill profit-bar" id="clfProfitBar" style="width:0%"></div>
+                    </div>
+                    <div class="confidence-bar-label" style="margin-top:8px;">
+                      <span>Probabilitas LOSS</span>
+                      <span id="clfLossPct">—</span>
+                    </div>
+                    <div class="bar-track">
+                      <div class="bar-fill loss-bar" id="clfLossBar" style="width:0%"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ─ Panel 2: Regression ─ -->
+            <div class="ai-panel">
+              <div class="ai-panel-header regression">
+                <div class="ai-panel-icon reg"></div>
+                <div>
+                  <div class="ai-panel-title">Estimasi Profit Transaksi</div>
+                  <div class="ai-panel-desc">Regresi: Berapa estimasi nominal profit dalam USD?</div>
+                </div>
+              </div>
+              <div class="ai-form">
+                <div class="form-grid" id="regFormGrid">
+                  <div class="form-group">
+                    <label class="form-label">Sales (USD)</label>
+                    <input type="number" class="form-control" id="reg-sales" value="2000" min="0" step="0.01">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Diskon (%)</label>
+                    <div class="slider-container">
+                      <input type="range" class="form-range" id="reg-discount-range" min="0" max="100" step="1"
+                        value="20" oninput="syncSlider('reg-discount', this.value)">
+                      <span class="slider-value" id="reg-discount-val">20%</span>
+                    </div>
+                    <input type="hidden" id="reg-discount" value="20">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Biaya Kirim (USD)</label>
+                    <input type="number" class="form-control" id="reg-shipping" value="15" min="0" step="0.01">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Kuantitas</label>
+                    <input type="number" class="form-control" id="reg-quantity" value="3" min="1" step="1">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Kategori</label>
+                    <select class="form-control" id="reg-category" onchange="updateSubcategory('reg')">
+                      <option value="Furniture">Furniture</option>
+                      <option value="Office Supplies" selected>Office Supplies</option>
+                      <option value="Technology">Technology</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Sub-Kategori</label>
+                    <select class="form-control" id="reg-subcategory"></select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Segment</label>
+                    <select class="form-control" id="reg-segment">
+                      <option value="Consumer" selected>Consumer</option>
+                      <option value="Corporate">Corporate</option>
+                      <option value="Home Office">Home Office</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Market</label>
+                    <select class="form-control" id="reg-market">
+                      <option value="US" selected>US</option>
+                      <option value="EU">EU</option>
+                      <option value="APAC">APAC</option>
+                      <option value="LATAM">LATAM</option>
+                      <option value="EMEA">EMEA</option>
+                      <option value="Africa">Africa</option>
+                      <option value="Canada">Canada</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Ship Mode</label>
+                    <select class="form-control" id="reg-shipmode">
+                      <option value="Standard Class" selected>Standard Class</option>
+                      <option value="Second Class">Second Class</option>
+                      <option value="First Class">First Class</option>
+                      <option value="Same Day">Same Day</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Order Priority</label>
+                    <select class="form-control" id="reg-priority">
+                      <option value="Medium" selected>Medium</option>
+                      <option value="Low">Low</option>
+                      <option value="High">High</option>
+                      <option value="Critical">Critical</option>
+                    </select>
+                  </div>
+                  <div class="form-group full">
+                    <label class="form-label">Region</label>
+                    <select class="form-control" id="reg-region">
+                      <option value="West" selected>West</option>
+                      <option value="East">East</option>
+                      <option value="Central">Central</option>
+                      <option value="South">South</option>
+                      <option value="North">North</option>
+                      <option value="EMEA">EMEA</option>
+                      <option value="Southeast Asia">Southeast Asia</option>
+                      <option value="North Asia">North Asia</option>
+                      <option value="Oceania">Oceania</option>
+                      <option value="Central Asia">Central Asia</option>
+                      <option value="Caribbean">Caribbean</option>
+                      <option value="Canada">Canada</option>
+                    </select>
+                  </div>
+                </div>
+
+                <button class="predict-btn reg" id="regPredictBtn" onclick="predictRegress()">
+                  <span class="btn-text"> Estimasi Profit Sekarang</span>
+                </button>
+
+                <div class="ai-result" id="regResult">
+                  <div class="result-label">Hasil Estimasi Profit (Regresi)</div>
+                  <div class="result-main">
+                    <div class="result-icon" id="regResultIcon">—</div>
+                    <div>
+                      <div class="result-value" id="regResultValue">—</div>
+                      <div class="result-confidence" id="regResultStatus">—</div>
+                    </div>
+                  </div>
+                  <div class="confidence-bar" style="margin-top:16px;">
+                    <div class="confidence-bar-label">
+                      <span>Profit Margin Ratio</span>
+                      <span id="regMarginPct">—</span>
+                    </div>
+                    <div class="bar-track">
+                      <div class="bar-fill neutral-bar" id="regMarginBar" style="width:0%"></div>
+                    </div>
+                  </div>
+                  <div
+                    style="margin-top:14px;padding:12px;background:var(--bg-elevated);border-radius:var(--radius-sm);font-size:12px;color:var(--text-secondary);"
+                    id="regSummary"></div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+        <!-- end ai page -->
+
+      </div><!-- end page-content -->
+    </div><!-- end main-content -->
+  </div><!-- end app-layout -->
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="/static/js/dashboard.js"></script>
+  <script src="/static/js/ai.js"></script>
+</body>
+
+</html>

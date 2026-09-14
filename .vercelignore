@@ -1,0 +1,33 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+env/
+.env
+.venv
+
+# Development files
+*.log
+*.sqlite-journal
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# PDFs & images not needed at runtime
+*.pdf
+Discover*.jpg
+
+# Unnecessary large files
+# (SQLite and model pkl files ARE needed, so NOT excluded)

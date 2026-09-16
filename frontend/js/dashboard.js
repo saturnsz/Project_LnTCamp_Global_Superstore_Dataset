@@ -1,3 +1,4 @@
+const API_BASE_URL = 'https://YOUR_HUGGINGFACE_SPACE_URL.hf.space';
 /* ===========================================
    StoreIQ Admin — Dashboard JS
    Navigation, Charts, Tables, Pagination
@@ -212,7 +213,7 @@ async function initDashboard() {
 // ─── KPI ──────────────────────────────────────
 async function loadKPI() {
   try {
-    const d = await fetch('/api/kpi').then(r => r.json());
+    const d = await fetch(API_BASE_URL + '/api/kpi').then(r => r.json());
 
     document.getElementById('kpiRevenue').textContent   = fmt(d.total_revenue);
     document.getElementById('kpiProfit').textContent    = fmt(d.total_profit);
@@ -245,7 +246,7 @@ function createChart(id, config) {
 // ─── Revenue by Year ──────────────────────────
 async function loadChartRevenueYear() {
   try {
-    const data = await fetch('/api/revenue-by-year').then(r => r.json());
+    const data = await fetch(API_BASE_URL + '/api/revenue-by-year').then(r => r.json());
     const labels = data.map(d => d.year);
     createChart('chartRevenueYear', {
       type: 'bar',
@@ -296,7 +297,7 @@ async function loadChartRevenueYear() {
 // ─── Category Donut ───────────────────────────
 async function loadChartCategory() {
   try {
-    const data = await fetch('/api/sales-by-category').then(r => r.json());
+    const data = await fetch(API_BASE_URL + '/api/sales-by-category').then(r => r.json());
     const colors = [COLORS.blue, COLORS.purple, COLORS.orange];
     createChart('chartCategory', {
       type: 'doughnut',
@@ -342,7 +343,7 @@ async function loadChartCategory() {
 // ─── Market Horizontal Bar ────────────────────
 async function loadChartMarket() {
   try {
-    const data = await fetch('/api/profit-by-market').then(r => r.json());
+    const data = await fetch(API_BASE_URL + '/api/profit-by-market').then(r => r.json());
     createChart('chartMarket', {
       type: 'bar',
       data: {
@@ -385,7 +386,7 @@ async function loadChartMarket() {
 // ─── Sub-Category Bar ─────────────────────────
 async function loadChartSubcat() {
   try {
-    const data = await fetch('/api/top-subcategory').then(r => r.json());
+    const data = await fetch(API_BASE_URL + '/api/top-subcategory').then(r => r.json());
     createChart('chartSubcat', {
       type: 'bar',
       data: {
@@ -419,7 +420,7 @@ async function loadChartSubcat() {
 // ─── Ship Mode Pie ────────────────────────────
 async function loadChartShipMode() {
   try {
-    const data = await fetch('/api/orders-by-shipmode').then(r => r.json());
+    const data = await fetch(API_BASE_URL + '/api/orders-by-shipmode').then(r => r.json());
     const colors = [COLORS.blue, COLORS.purple, COLORS.orange, COLORS.cyan];
     createChart('chartShipMode', {
       type: 'pie',
@@ -448,7 +449,7 @@ async function loadChartShipMode() {
 // ─── Segment Doughnut ─────────────────────────
 async function loadChartSegment() {
   try {
-    const data = await fetch('/api/segment-stats').then(r => r.json());
+    const data = await fetch(API_BASE_URL + '/api/segment-stats').then(r => r.json());
     const colors = [COLORS.blue, COLORS.purple, COLORS.cyan];
     createChart('chartSegment', {
       type: 'doughnut',
@@ -478,7 +479,7 @@ async function loadChartSegment() {
 // ─── Region Bar ───────────────────────────────
 async function loadChartRegion() {
   try {
-    const data = await fetch('/api/region-stats').then(r => r.json());
+    const data = await fetch(API_BASE_URL + '/api/region-stats').then(r => r.json());
     createChart('chartRegion', {
       type: 'bar',
       data: {
@@ -707,3 +708,4 @@ window.addEventListener('resize', () => {
     document.body.style.overflow = '';
   }
 });
+

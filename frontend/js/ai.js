@@ -1,3 +1,4 @@
+const API_BASE_URL = 'https://YOUR_HUGGINGFACE_SPACE_URL.hf.space';
 /* ===========================================
    StoreIQ Admin — AI Predictor JS
    Classification & Regression with XGBoost
@@ -92,7 +93,7 @@ async function predictClassify() {
     `<span class="loading-spinner"></span> Menganalisis...`;
 
   try {
-    const res  = await fetch('/api/predict/classify', {
+    const res  = await fetch(API_BASE_URL + '/api/predict/classify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -152,7 +153,7 @@ async function predictRegress() {
   document.getElementById('regPredictBtn').classList.add('loading');
 
   try {
-    const res  = await fetch('/api/predict/regress', {
+    const res  = await fetch(API_BASE_URL + '/api/predict/regress', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -216,3 +217,4 @@ function showRegResult(json, inputData) {
     </div>
   `;
 }
+

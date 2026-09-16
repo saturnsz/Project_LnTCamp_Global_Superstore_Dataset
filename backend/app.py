@@ -1,18 +1,12 @@
 import os
 import sqlite3
 import joblib
-import asyncio
 import numpy as np
 import pandas as pd
-from contextlib import asynccontextmanager
-from functools import partial
 
-from fastapi import FastAPI, Query, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, Field
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+from pydantic import BaseModel, Field, ValidationError
 
 # ─── Paths ───────────────────────────────────────────────────────────────────
 
@@ -23,68 +17,33 @@ DB_PATH  = os.path.join(BASE_DIR, 'superstore (1).sqlite')
 
 scaler_clf = cols_clf = model_clf = None
 scaler_reg = cols_reg = model_reg = None
-MODEL_ERROR: str | None = None
-
+MODEL_ERROR = None
 
 def _load_model(folder: str, scaler_file: str, cols_file: str, model_file: str):
-    """Load scaler, column list, and XGBoost model from disk."""
     scaler = joblib.load(os.path.join(BASE_DIR, folder, scaler_file))
     cols   = joblib.load(os.path.join(BASE_DIR, folder, cols_file))
     model  = joblib.load(os.path.join(BASE_DIR, folder, model_file))
     return scaler, cols, model
 
-
-# ─── Lifespan (startup / shutdown) ───────────────────────────────────────────
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Load ML models once at startup."""
-    global scaler_clf, cols_clf, model_clf
-    global scaler_reg, cols_reg, model_reg
-    global MODEL_ERROR
-
-    try:
-        scaler_clf, cols_clf, model_clf = _load_model(
-            'model_klasifikasi',
-            'scaler_clf.pkl', 'training_columns_clf.pkl', 'xgboost_clf_model.pkl',
-        )
-        scaler_reg, cols_reg, model_reg = _load_model(
-            'model_regresi',
-            'scaler_reg.pkl', 'training_columns_reg.pkl', 'xgboost_reg_model.pkl',
-        )
-        print("[OK] ML models loaded successfully")
-    except Exception as exc:
-        MODEL_ERROR = str(exc)
-        print(f"[WARN] Could not load ML models: {exc}")
-        print("   Dashboard data features will still work.")
-        print("   To fix: install a compatible xgboost version.")
-
-    yield  # ← app is running
-
-    # Shutdown: nothing special needed
-    print("[INFO] Shutting down StoreIQ Admin")
-
+try:
+    scaler_clf, cols_clf, model_clf = _load_model(
+        'model_klasifikasi',
+        'scaler_clf.pkl', 'training_columns_clf.pkl', 'xgboost_clf_model.pkl',
+    )
+    scaler_reg, cols_reg, model_reg = _load_model(
+        'model_regresi',
+        'scaler_reg.pkl', 'training_columns_reg.pkl', 'xgboost_reg_model.pkl',
+    )
+    print("[OK] ML models loaded successfully")
+except Exception as exc:
+    MODEL_ERROR = str(exc)
+    print(f"[WARN] Could not load ML models: {exc}")
+    print("   Dashboard data features will still work.")
 
 # ─── App Instance ─────────────────────────────────────────────────────────────
 
-app = FastAPI(
-    title="StoreIQ Admin API",
-    description="Global Superstore analytics & XGBoost AI predictor",
-    version="2.0.0",
-    lifespan=lifespan,
-)
-
-# CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Static files & templates
-app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
-templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+app = Flask(__name__)
+CORS(app)
 
 # ─── DB Helpers ──────────────────────────────────────────────────────────────
 
@@ -93,9 +52,7 @@ def _get_db() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     return conn
 
-
-def _sync_query(sql: str, params: tuple = ()) -> list[dict]:
-    """Run a SELECT that returns multiple rows (sync, called via executor)."""
+def query(sql: str, params: tuple = ()) -> list[dict]:
     conn = _get_db()
     cur  = conn.cursor()
     cur.execute(sql, params)
@@ -103,9 +60,7 @@ def _sync_query(sql: str, params: tuple = ()) -> list[dict]:
     conn.close()
     return rows
 
-
-def _sync_query_one(sql: str, params: tuple = ()) -> dict:
-    """Run a SELECT that returns a single row (sync, called via executor)."""
+def query_one(sql: str, params: tuple = ()) -> dict:
     conn = _get_db()
     cur  = conn.cursor()
     cur.execute(sql, params)
@@ -113,41 +68,26 @@ def _sync_query_one(sql: str, params: tuple = ()) -> dict:
     conn.close()
     return dict(row) if row else {}
 
-
-async def query(sql: str, params: tuple = ()) -> list[dict]:
-    """Async wrapper — runs the blocking DB call in a thread-pool executor."""
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, partial(_sync_query, sql, params))
-
-
-async def query_one(sql: str, params: tuple = ()) -> dict:
-    """Async wrapper for single-row queries."""
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, partial(_sync_query_one, sql, params))
-
-
 # ─── Pydantic Request Schemas ─────────────────────────────────────────────────
 
 class PredictInput(BaseModel):
-    sales:          float = Field(..., gt=0,  description="Nilai penjualan dalam USD")
-    discount:       float = Field(..., ge=0, le=100, description="Diskon dalam persen (0–100)")
-    quantity:       int   = Field(..., ge=1,  description="Jumlah unit")
-    shipping_cost:  float = Field(..., ge=0,  description="Biaya pengiriman dalam USD")
-    category:       str   = Field(...,        description="Furniture | Office Supplies | Technology")
-    sub_category:   str   = Field(...,        description="Sub-kategori produk")
-    segment:        str   = Field(...,        description="Consumer | Corporate | Home Office")
-    market:         str   = Field(...,        description="US | EU | APAC | LATAM | EMEA | Africa | Canada")
-    ship_mode:      str   = Field(...,        description="Standard Class | Second Class | First Class | Same Day")
-    order_priority: str   = Field(...,        description="Low | Medium | High | Critical")
-    region:         str   = Field(...,        description="West | East | Central | South | …")
-
+    sales:          float = Field(..., gt=0)
+    discount:       float = Field(..., ge=0, le=100)
+    quantity:       int   = Field(..., ge=1)
+    shipping_cost:  float = Field(..., ge=0)
+    category:       str
+    sub_category:   str
+    segment:        str
+    market:         str
+    ship_mode:      str
+    order_priority: str
+    region:         str
 
 # ─── Feature Engineering ──────────────────────────────────────────────────────
 
 def build_input_df(data: PredictInput, training_cols: list[str]) -> pd.DataFrame:
-    """Build feature DataFrame matching training columns from validated input."""
     sales         = data.sales
-    discount      = data.discount / 100.0      # persen → desimal
+    discount      = data.discount / 100.0
     quantity      = data.quantity
     shipping_cost = data.shipping_cost
 
@@ -155,7 +95,7 @@ def build_input_df(data: PredictInput, training_cols: list[str]) -> pd.DataFrame
     discount_impact     = sales * discount
     total_cost_spent    = shipping_cost + discount_impact
 
-    row: dict = {
+    row = {
         'sales':               sales,
         'discount':            discount,
         'quantity':            quantity,
@@ -165,12 +105,10 @@ def build_input_df(data: PredictInput, training_cols: list[str]) -> pd.DataFrame
         'total_cost_spent':    total_cost_spent,
     }
 
-    # Pre-fill all one-hot columns with 0
     for col in training_cols:
         if col not in row:
             row[col] = 0
 
-    # One-hot encoding — flip the matching column to 1
     _ohe_map = {
         f'ship_mode_{data.ship_mode}':             1,
         f'order_priority_{data.order_priority}':   1,
@@ -187,27 +125,23 @@ def build_input_df(data: PredictInput, training_cols: list[str]) -> pd.DataFrame
     df = pd.DataFrame([row])[training_cols]
     return df
 
-
 def _get_numeric_cols(scaler) -> list[str]:
-    """Return the numeric feature names the scaler was fitted on."""
     if hasattr(scaler, 'feature_names_in_'):
         return list(scaler.feature_names_in_)
     return ['sales', 'discount', 'quantity', 'shipping_cost',
             'shipping_cost_ratio', 'discount_impact', 'total_cost_spent']
 
+# ─── Health Check Route ───────────────────────────────────────────────────────
 
-# ─── Frontend Route ───────────────────────────────────────────────────────────
-
-@app.get("/", response_class=HTMLResponse, include_in_schema=False)
-async def index(request: Request):
-    return templates.TemplateResponse(request=request, name="index.html")
-
+@app.route("/", methods=["GET"])
+def index():
+    return jsonify({"status": "ok", "message": "StoreIQ Backend API (Flask)"})
 
 # ─── KPI Endpoint ─────────────────────────────────────────────────────────────
 
-@app.get("/api/kpi", summary="Dashboard KPI summary")
-async def kpi():
-    data = await query_one("""
+@app.route("/api/kpi", methods=["GET"])
+def kpi():
+    data = query_one("""
         SELECT
             ROUND(SUM(oi.sales), 2)         AS total_revenue,
             ROUND(SUM(oi.profit), 2)        AS total_profit,
@@ -220,14 +154,13 @@ async def kpi():
         FROM order_items oi
         JOIN orders o ON oi.order_key = o.order_key
     """)
-    return data
-
+    return jsonify(data)
 
 # ─── Chart Endpoints ──────────────────────────────────────────────────────────
 
-@app.get("/api/revenue-by-year", summary="Annual revenue & profit trend")
-async def revenue_by_year():
-    return await query("""
+@app.route("/api/revenue-by-year", methods=["GET"])
+def revenue_by_year():
+    data = query("""
         SELECT oi.year,
                ROUND(SUM(oi.sales),2)  AS revenue,
                ROUND(SUM(oi.profit),2) AS profit
@@ -235,11 +168,11 @@ async def revenue_by_year():
         GROUP BY oi.year
         ORDER BY oi.year
     """)
+    return jsonify(data)
 
-
-@app.get("/api/sales-by-category", summary="Sales breakdown by product category")
-async def sales_by_category():
-    return await query("""
+@app.route("/api/sales-by-category", methods=["GET"])
+def sales_by_category():
+    data = query("""
         SELECT p.category,
                ROUND(SUM(oi.sales),2)  AS sales,
                ROUND(SUM(oi.profit),2) AS profit
@@ -248,11 +181,11 @@ async def sales_by_category():
         GROUP BY p.category
         ORDER BY sales DESC
     """)
+    return jsonify(data)
 
-
-@app.get("/api/profit-by-market", summary="Profit per global market")
-async def profit_by_market():
-    return await query("""
+@app.route("/api/profit-by-market", methods=["GET"])
+def profit_by_market():
+    data = query("""
         SELECT l.market,
                ROUND(SUM(oi.sales),2)  AS sales,
                ROUND(SUM(oi.profit),2) AS profit
@@ -262,11 +195,11 @@ async def profit_by_market():
         GROUP BY l.market
         ORDER BY profit DESC
     """)
+    return jsonify(data)
 
-
-@app.get("/api/top-subcategory", summary="Top 10 sub-categories by revenue")
-async def top_subcategory():
-    return await query("""
+@app.route("/api/top-subcategory", methods=["GET"])
+def top_subcategory():
+    data = query("""
         SELECT p.sub_category,
                ROUND(SUM(oi.sales),2)  AS sales,
                ROUND(SUM(oi.profit),2) AS profit
@@ -276,11 +209,11 @@ async def top_subcategory():
         ORDER BY sales DESC
         LIMIT 10
     """)
+    return jsonify(data)
 
-
-@app.get("/api/orders-by-shipmode", summary="Orders count by shipping method")
-async def orders_by_shipmode():
-    return await query("""
+@app.route("/api/orders-by-shipmode", methods=["GET"])
+def orders_by_shipmode():
+    data = query("""
         SELECT o.ship_mode,
                COUNT(DISTINCT o.order_key) AS order_count,
                ROUND(SUM(oi.sales),2)      AS total_sales
@@ -289,11 +222,11 @@ async def orders_by_shipmode():
         GROUP BY o.ship_mode
         ORDER BY order_count DESC
     """)
+    return jsonify(data)
 
-
-@app.get("/api/monthly-trend", summary="Weekly sales & profit trend")
-async def monthly_trend():
-    return await query("""
+@app.route("/api/monthly-trend", methods=["GET"])
+def monthly_trend():
+    data = query("""
         SELECT
             oi.year,
             oi.week_num,
@@ -304,11 +237,11 @@ async def monthly_trend():
         ORDER BY oi.year, oi.week_num
         LIMIT 200
     """)
+    return jsonify(data)
 
-
-@app.get("/api/profit-margin-trend", summary="Yearly profit margin trend")
-async def profit_margin_trend():
-    return await query("""
+@app.route("/api/profit-margin-trend", methods=["GET"])
+def profit_margin_trend():
+    data = query("""
         SELECT oi.year,
                ROUND(SUM(oi.sales),2)   AS sales,
                ROUND(SUM(oi.profit),2)  AS profit,
@@ -317,11 +250,11 @@ async def profit_margin_trend():
         GROUP BY oi.year
         ORDER BY oi.year
     """)
+    return jsonify(data)
 
-
-@app.get("/api/segment-stats", summary="Revenue & customers by segment")
-async def segment_stats():
-    return await query("""
+@app.route("/api/segment-stats", methods=["GET"])
+def segment_stats():
+    data = query("""
         SELECT c.segment,
                COUNT(DISTINCT c.customer_id) AS customers,
                COUNT(DISTINCT o.order_key)   AS orders,
@@ -333,11 +266,11 @@ async def segment_stats():
         GROUP BY c.segment
         ORDER BY sales DESC
     """)
+    return jsonify(data)
 
-
-@app.get("/api/region-stats", summary="Sales & profit by region")
-async def region_stats():
-    return await query("""
+@app.route("/api/region-stats", methods=["GET"])
+def region_stats():
+    data = query("""
         SELECT l.region,
                ROUND(SUM(oi.sales),2)  AS sales,
                ROUND(SUM(oi.profit),2) AS profit,
@@ -348,17 +281,19 @@ async def region_stats():
         GROUP BY l.region
         ORDER BY sales DESC
     """)
-
+    return jsonify(data)
 
 # ─── Table Endpoints ──────────────────────────────────────────────────────────
 
-@app.get("/api/orders", summary="Paginated order list with search")
-async def orders(
-    page:  int = Query(1,  ge=1),
-    limit: int = Query(20, ge=1, le=200),
-    q:     str = Query(""),
-):
-    q = q.strip()
+@app.route("/api/orders", methods=["GET"])
+def orders():
+    try:
+        page = int(request.args.get("page", 1))
+        limit = int(request.args.get("limit", 20))
+    except ValueError:
+        page, limit = 1, 20
+    
+    q = request.args.get("q", "").strip()
     offset = (page - 1) * limit
 
     if q:
@@ -384,8 +319,8 @@ async def orders(
         {where}
     """
 
-    total = (await query_one(f"SELECT COUNT(*) AS cnt {base_sql}", params_f))["cnt"]
-    rows  = await query(f"""
+    total = query_one(f"SELECT COUNT(*) AS cnt {base_sql}", params_f).get("cnt", 0)
+    rows  = query(f"""
         SELECT
             o.order_id_raw,
             c.customer_name,
@@ -411,16 +346,17 @@ async def orders(
         LIMIT ? OFFSET ?
     """, params_f + (limit, offset))
 
-    return {"total": total, "page": page, "limit": limit, "data": rows}
+    return jsonify({"total": total, "page": page, "limit": limit, "data": rows})
 
-
-@app.get("/api/products", summary="Paginated product list with search")
-async def products(
-    page:  int = Query(1,  ge=1),
-    limit: int = Query(20, ge=1, le=200),
-    q:     str = Query(""),
-):
-    q = q.strip()
+@app.route("/api/products", methods=["GET"])
+def products():
+    try:
+        page = int(request.args.get("page", 1))
+        limit = int(request.args.get("limit", 20))
+    except ValueError:
+        page, limit = 1, 20
+        
+    q = request.args.get("q", "").strip()
     offset = (page - 1) * limit
 
     if q:
@@ -430,8 +366,8 @@ async def products(
     else:
         where, params = "", ()
 
-    total = (await query_one(f"SELECT COUNT(*) AS cnt FROM dim_products p {where}", params))["cnt"]
-    rows  = await query(f"""
+    total = query_one(f"SELECT COUNT(*) AS cnt FROM dim_products p {where}", params).get("cnt", 0)
+    rows  = query(f"""
         SELECT p.product_id, p.category, p.sub_category, p.product_name,
                ROUND(AVG(oi.sales),2)  AS avg_sales,
                ROUND(SUM(oi.profit),2) AS total_profit,
@@ -444,16 +380,17 @@ async def products(
         LIMIT ? OFFSET ?
     """, params + (limit, offset))
 
-    return {"total": total, "page": page, "limit": limit, "data": rows}
+    return jsonify({"total": total, "page": page, "limit": limit, "data": rows})
 
-
-@app.get("/api/customers", summary="Paginated customer list with search")
-async def customers(
-    page:  int = Query(1,  ge=1),
-    limit: int = Query(20, ge=1, le=200),
-    q:     str = Query(""),
-):
-    q = q.strip()
+@app.route("/api/customers", methods=["GET"])
+def customers():
+    try:
+        page = int(request.args.get("page", 1))
+        limit = int(request.args.get("limit", 20))
+    except ValueError:
+        page, limit = 1, 20
+        
+    q = request.args.get("q", "").strip()
     offset = (page - 1) * limit
 
     if q:
@@ -463,10 +400,8 @@ async def customers(
     else:
         where, params = "", ()
 
-    total = (await query_one(
-        f"SELECT COUNT(DISTINCT c.customer_id) AS cnt FROM dim_customers c {where}", params
-    ))["cnt"]
-    rows = await query(f"""
+    total = query_one(f"SELECT COUNT(DISTINCT c.customer_id) AS cnt FROM dim_customers c {where}", params).get("cnt", 0)
+    rows = query(f"""
         SELECT c.customer_id, c.customer_name, c.segment,
                COUNT(DISTINCT o.order_key)   AS total_orders,
                ROUND(SUM(oi.sales),2)         AS total_sales,
@@ -481,16 +416,17 @@ async def customers(
         LIMIT ? OFFSET ?
     """, params + (limit, offset))
 
-    return {"total": total, "page": page, "limit": limit, "data": rows}
+    return jsonify({"total": total, "page": page, "limit": limit, "data": rows})
 
-
-@app.get("/api/locations", summary="Paginated location list with search")
-async def locations(
-    page:  int = Query(1,  ge=1),
-    limit: int = Query(20, ge=1, le=200),
-    q:     str = Query(""),
-):
-    q = q.strip()
+@app.route("/api/locations", methods=["GET"])
+def locations():
+    try:
+        page = int(request.args.get("page", 1))
+        limit = int(request.args.get("limit", 20))
+    except ValueError:
+        page, limit = 1, 20
+        
+    q = request.args.get("q", "").strip()
     offset = (page - 1) * limit
 
     if q:
@@ -500,8 +436,8 @@ async def locations(
     else:
         where, params = "", ()
 
-    total = (await query_one(f"SELECT COUNT(*) AS cnt FROM dim_locations l {where}", params))["cnt"]
-    rows  = await query(f"""
+    total = query_one(f"SELECT COUNT(*) AS cnt FROM dim_locations l {where}", params).get("cnt", 0)
+    rows  = query(f"""
         SELECT l.location_id, l.city, l.state, l.country, l.region, l.market,
                COUNT(DISTINCT o.order_key)   AS total_orders,
                ROUND(SUM(oi.sales),2)         AS total_sales,
@@ -515,94 +451,67 @@ async def locations(
         LIMIT ? OFFSET ?
     """, params + (limit, offset))
 
-    return {"total": total, "page": page, "limit": limit, "data": rows}
-
+    return jsonify({"total": total, "page": page, "limit": limit, "data": rows})
 
 # ─── AI Prediction Endpoints ──────────────────────────────────────────────────
 
-@app.post("/api/predict/classify", summary="Klasifikasi PROFIT / LOSS (XGBoost)")
-async def predict_classify(payload: PredictInput):
+@app.route("/api/predict/classify", methods=["POST"])
+def predict_classify():
     if MODEL_ERROR:
-        raise HTTPException(
-            status_code=503,
-            detail=f"ML models tidak dapat dimuat: {MODEL_ERROR}",
-        )
+        return jsonify({"detail": f"ML models tidak dapat dimuat: {MODEL_ERROR}"}), 503
     try:
-        loop = asyncio.get_running_loop()
+        payload = PredictInput(**request.json)
+        
+        df = build_input_df(payload, cols_clf)
 
-        # Build feature matrix in executor so we don't block the event loop
-        df = await loop.run_in_executor(
-            None, partial(build_input_df, payload, cols_clf)
-        )
-
-        # Scale numeric features
         df_scaled    = df.copy()
         numeric_cols = _get_numeric_cols(scaler_clf)
         df_scaled[numeric_cols] = scaler_clf.transform(df[numeric_cols])
 
-        # Predict (run in executor — CPU-bound)
-        pred  = await loop.run_in_executor(None, lambda: model_clf.predict(df_scaled)[0])
-        proba = await loop.run_in_executor(None, lambda: model_clf.predict_proba(df_scaled)[0])
+        pred  = model_clf.predict(df_scaled)[0]
+        proba = model_clf.predict_proba(df_scaled)[0]
 
         label        = "PROFIT" if pred == 1 else "LOSS"
         profit_prob  = round(float(proba[1]) * 100, 1) if len(proba) > 1 else round(float(max(proba)) * 100, 1)
         confidence   = round(float(max(proba)) * 100, 1)
 
-        return {
+        return jsonify({
             "status":             "success",
             "prediction":         label,
             "is_profit":          bool(pred == 1),
             "confidence":         confidence,
             "profit_probability": profit_prob,
             "loss_probability":   round(100.0 - profit_prob, 1),
-        }
-
-    except HTTPException:
-        raise
+        })
+    except ValidationError as e:
+        return jsonify(e.errors()), 400
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        return jsonify({"detail": str(exc)}), 500
 
-
-@app.post("/api/predict/regress", summary="Estimasi nominal profit (XGBoost Regressor)")
-async def predict_regress(payload: PredictInput):
+@app.route("/api/predict/regress", methods=["POST"])
+def predict_regress():
     if MODEL_ERROR:
-        raise HTTPException(
-            status_code=503,
-            detail=f"ML models tidak dapat dimuat: {MODEL_ERROR}",
-        )
+        return jsonify({"detail": f"ML models tidak dapat dimuat: {MODEL_ERROR}"}), 503
     try:
-        loop = asyncio.get_running_loop()
+        payload = PredictInput(**request.json)
 
-        df = await loop.run_in_executor(
-            None, partial(build_input_df, payload, cols_reg)
-        )
+        df = build_input_df(payload, cols_reg)
 
         df_scaled    = df.copy()
         numeric_cols = _get_numeric_cols(scaler_reg)
         df_scaled[numeric_cols] = scaler_reg.transform(df[numeric_cols])
 
-        profit_est = await loop.run_in_executor(
-            None, lambda: float(model_reg.predict(df_scaled)[0])
-        )
+        profit_est = float(model_reg.predict(df_scaled)[0])
 
-        return {
+        return jsonify({
             "status":           "success",
             "estimated_profit": round(profit_est, 2),
             "is_profitable":    profit_est > 0,
-        }
-
-    except HTTPException:
-        raise
+        })
+    except ValidationError as e:
+        return jsonify(e.errors()), 400
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-
-
-# ─── Entry Point ──────────────────────────────────────────────────────────────
+        return jsonify({"detail": str(exc)}), 500
 
 if __name__ == "__main__":
-    import uvicorn
-    print("[START] StoreIQ Admin — FastAPI")
-    print("[INFO] Open http://localhost:5000")
-    print("[INFO] API Docs: http://localhost:5000/docs")
-    uvicorn.run("app:app", host="0.0.0.0", port=5000, reload=True)
-
+    app.run(host="0.0.0.0", port=5000, debug=True)

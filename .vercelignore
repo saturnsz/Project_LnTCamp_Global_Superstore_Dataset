@@ -29,5 +29,12 @@ Thumbs.db
 *.pdf
 Discover*.jpg
 
-# Unnecessary large files
-# (SQLite and model pkl files ARE needed, so NOT excluded)
+# Backend — not needed for frontend-only deploy
+backend/
+templates/
+static/
+__pycache__/
+
+# Large files not needed for frontend
+*.sqlite
+*.pkl

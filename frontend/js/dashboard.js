@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://YOUR_HUGGINGFACE_SPACE_URL.hf.space';
+const API_BASE_URL = 'https://adwyaalk.pythonanywhere.com';
 /* ===========================================
    StoreIQ Admin — Dashboard JS
    Navigation, Charts, Tables, Pagination

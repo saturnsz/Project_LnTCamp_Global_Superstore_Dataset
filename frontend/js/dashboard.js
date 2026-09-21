@@ -515,7 +515,7 @@ async function loadTablePage(type, page) {
   const s = state.pages[type];
   s.page = page;
 
-  const url = `/api/${type}?page=${page}&limit=${s.limit}&q=${encodeURIComponent(s.q)}`;
+  const url = `${API_BASE_URL}/api/${type}?page=${page}&limit=${s.limit}&q=${encodeURIComponent(s.q)}`;
 
   try {
     const res = await fetch(url);

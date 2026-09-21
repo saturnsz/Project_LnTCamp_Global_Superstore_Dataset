@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://YOUR_HUGGINGFACE_SPACE_URL.hf.space';
+const API_BASE_URL = 'https://adwyaalk.pythonanywhere.com';
 /* ===========================================
    StoreIQ Admin — AI Predictor JS
    Classification & Regression with XGBoost
@@ -8,9 +8,9 @@ const API_BASE_URL = 'https://YOUR_HUGGINGFACE_SPACE_URL.hf.space';
 
 // ─── Sub-category Map ─────────────────────────
 const SUBCATEGORIES = {
-  'Furniture':       ['Bookcases', 'Chairs', 'Furnishings', 'Tables'],
+  'Furniture': ['Bookcases', 'Chairs', 'Furnishings', 'Tables'],
   'Office Supplies': ['Appliances', 'Art', 'Binders', 'Envelopes', 'Fasteners', 'Labels', 'Paper', 'Storage', 'Supplies'],
-  'Technology':      ['Accessories', 'Copiers', 'Machines', 'Phones'],
+  'Technology': ['Accessories', 'Copiers', 'Machines', 'Phones'],
 };
 
 // ─── Slider Sync ──────────────────────────────
@@ -21,9 +21,9 @@ function syncSlider(inputId, value) {
 
 // ─── Subcategory Update ───────────────────────
 function updateSubcategory(prefix) {
-  const cat    = document.getElementById(`${prefix}-category`).value;
+  const cat = document.getElementById(`${prefix}-category`).value;
   const select = document.getElementById(`${prefix}-subcategory`);
-  const subs   = SUBCATEGORIES[cat] || [];
+  const subs = SUBCATEGORIES[cat] || [];
 
   select.innerHTML = subs.map(s => `<option value="${s}">${s}</option>`).join('');
 }
@@ -39,17 +39,17 @@ function getFormValues(prefix) {
   const get = id => document.getElementById(`${prefix}-${id}`);
 
   return {
-    sales:         parseFloat(get('sales').value)    || 0,
-    discount:      parseFloat(get('discount').value) || 0,
+    sales: parseFloat(get('sales').value) || 0,
+    discount: parseFloat(get('discount').value) || 0,
     shipping_cost: parseFloat(get('shipping').value) || 0,
-    quantity:      parseInt(get('quantity').value)   || 1,
-    category:      get('category').value,
-    sub_category:  get('subcategory').value,
-    segment:       get('segment').value,
-    market:        get('market').value,
-    ship_mode:     get('shipmode').value,
+    quantity: parseInt(get('quantity').value) || 1,
+    category: get('category').value,
+    sub_category: get('subcategory').value,
+    segment: get('segment').value,
+    market: get('market').value,
+    ship_mode: get('shipmode').value,
     order_priority: get('priority').value,
-    region:        get('region').value,
+    region: get('region').value,
   };
 }
 
@@ -93,7 +93,7 @@ async function predictClassify() {
     `<span class="loading-spinner"></span> Menganalisis...`;
 
   try {
-    const res  = await fetch(API_BASE_URL + '/api/predict/classify', {
+    const res = await fetch(API_BASE_URL + '/api/predict/classify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -105,7 +105,7 @@ async function predictClassify() {
     showClfResult(json);
     showToast(`Prediksi: ${json.prediction} (${json.confidence}%)`, json.is_profit ? 'success' : 'error');
 
-  } catch(e) {
+  } catch (e) {
     showToast('Gagal melakukan prediksi: ' + e.message, 'error');
     console.error(e);
   } finally {
@@ -116,30 +116,30 @@ async function predictClassify() {
 }
 
 function showClfResult(json) {
-  const result    = document.getElementById('clfResult');
-  const icon      = document.getElementById('clfResultIcon');
-  const value     = document.getElementById('clfResultValue');
-  const conf      = document.getElementById('clfResultConf');
+  const result = document.getElementById('clfResult');
+  const icon = document.getElementById('clfResultIcon');
+  const value = document.getElementById('clfResultValue');
+  const conf = document.getElementById('clfResultConf');
   const profitPct = document.getElementById('clfProfitPct');
-  const lossPct   = document.getElementById('clfLossPct');
+  const lossPct = document.getElementById('clfLossPct');
   const profitBar = document.getElementById('clfProfitBar');
-  const lossBar   = document.getElementById('clfLossBar');
+  const lossBar = document.getElementById('clfLossBar');
 
   result.classList.add('show');
   result.className = `ai-result show ${json.is_profit ? 'result-profit' : 'result-loss'}`;
 
-  icon.textContent  = json.is_profit ? '' : '';
+  icon.textContent = json.is_profit ? '' : '';
   value.textContent = json.prediction;
-  value.className   = `result-value ${json.is_profit ? 'profit-val' : 'loss-val'}`;
-  conf.textContent  = `Keyakinan model: ${json.confidence}%`;
+  value.className = `result-value ${json.is_profit ? 'profit-val' : 'loss-val'}`;
+  conf.textContent = `Keyakinan model: ${json.confidence}%`;
 
   profitPct.textContent = json.profit_probability + '%';
-  lossPct.textContent   = json.loss_probability  + '%';
+  lossPct.textContent = json.loss_probability + '%';
 
   // Animate bars after a brief delay
   setTimeout(() => {
     profitBar.style.width = json.profit_probability + '%';
-    lossBar.style.width   = json.loss_probability  + '%';
+    lossBar.style.width = json.loss_probability + '%';
   }, 100);
 }
 
@@ -153,7 +153,7 @@ async function predictRegress() {
   document.getElementById('regPredictBtn').classList.add('loading');
 
   try {
-    const res  = await fetch(API_BASE_URL + '/api/predict/regress', {
+    const res = await fetch(API_BASE_URL + '/api/predict/regress', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -165,7 +165,7 @@ async function predictRegress() {
     showRegResult(json, data);
     showToast(`Estimasi Profit: $${json.estimated_profit.toFixed(2)}`, json.is_profitable ? 'success' : 'error');
 
-  } catch(e) {
+  } catch (e) {
     showToast('Gagal menghitung estimasi: ' + e.message, 'error');
     console.error(e);
   } finally {
@@ -177,24 +177,24 @@ async function predictRegress() {
 
 function showRegResult(json, inputData) {
   const result = document.getElementById('regResult');
-  const icon   = document.getElementById('regResultIcon');
-  const value  = document.getElementById('regResultValue');
+  const icon = document.getElementById('regResultIcon');
+  const value = document.getElementById('regResultValue');
   const status = document.getElementById('regResultStatus');
   const margin = document.getElementById('regMarginPct');
-  const bar    = document.getElementById('regMarginBar');
+  const bar = document.getElementById('regMarginBar');
   const summary = document.getElementById('regSummary');
 
   result.classList.add('show');
   result.className = `ai-result show ${json.is_profitable ? 'result-profit' : 'result-loss'}`;
 
   const profit = json.estimated_profit;
-  const sales  = inputData.sales;
+  const sales = inputData.sales;
   const marginPct = sales > 0 ? ((profit / sales) * 100) : 0;
-  const barWidth  = Math.min(Math.abs(marginPct), 100);
+  const barWidth = Math.min(Math.abs(marginPct), 100);
 
-  icon.textContent  = profit >= 0 ? '' : '';
+  icon.textContent = profit >= 0 ? '' : '';
   value.textContent = `$${profit.toFixed(2)}`;
-  value.className   = `result-value ${profit >= 0 ? 'profit-val' : 'loss-val'}`;
+  value.className = `result-value ${profit >= 0 ? 'profit-val' : 'loss-val'}`;
   status.textContent = profit >= 0
     ? ' STATUS AMAN: Transaksi menghasilkan keuntungan.'
     : ' PERINGATAN: Transaksi ini diprediksi MERUGIKAN!';
@@ -205,14 +205,14 @@ function showRegResult(json, inputData) {
   // Summary
   const discount = inputData.discount;
   const shipping = inputData.shipping_cost;
-  const qty      = inputData.quantity;
+  const qty = inputData.quantity;
   summary.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
       <div> <strong>Sales:</strong> $${sales.toFixed(2)}</div>
       <div> <strong>Diskon:</strong> ${discount}%</div>
       <div> <strong>Shipping:</strong> $${shipping.toFixed(2)}</div>
       <div> <strong>Qty:</strong> ${qty}</div>
-      <div> <strong>Discount Impact:</strong> -$${(sales * discount/100).toFixed(2)}</div>
+      <div> <strong>Discount Impact:</strong> -$${(sales * discount / 100).toFixed(2)}</div>
       <div> <strong>Profit Margin:</strong> ${marginPct.toFixed(1)}%</div>
     </div>
   `;

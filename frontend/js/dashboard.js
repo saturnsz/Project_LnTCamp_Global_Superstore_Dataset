@@ -1,12 +1,11 @@
+'use strict';
 const API_BASE_URL = 'https://adwyaalk.pythonanywhere.com';
 /* ===========================================
    StoreIQ Admin — Dashboard JS
    Navigation, Charts, Tables, Pagination
    =========================================== */
 
-'use strict';
-
-// ─── State ────────────────────────────────────
+// ─── State ────────────────────────────
 const state = {
   currentPage: 'dashboard',
   sidebarCollapsed: false,
@@ -709,3 +708,10 @@ window.addEventListener('resize', () => {
   }
 });
 
+// ─── Expose ke window (untuk inline onclick HTML) ────
+window.navigateTo        = navigateTo;
+window.toggleSidebar     = toggleSidebar;
+window.toggleMobileMenu  = toggleMobileMenu;
+window.refreshCurrentPage = refreshCurrentPage;
+window.exportTable       = exportTable;
+window.showToast         = showToast;

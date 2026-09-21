@@ -1,10 +1,10 @@
-const API_BASE_URL = 'https://adwyaalk.pythonanywhere.com';
+'use strict';
 /* ===========================================
    StoreIQ Admin — AI Predictor JS
    Classification & Regression with XGBoost
    =========================================== */
 
-'use strict';
+// API_BASE_URL diambil dari dashboard.js (sudah diload duluan)
 
 // ─── Sub-category Map ─────────────────────────
 const SUBCATEGORIES = {
@@ -218,3 +218,8 @@ function showRegResult(json, inputData) {
   `;
 }
 
+// ─── Expose ke window (untuk inline onclick HTML) ────
+window.predictClassify = predictClassify;
+window.predictRegress = predictRegress;
+window.syncSlider = syncSlider;
+window.updateSubcategory = updateSubcategory;

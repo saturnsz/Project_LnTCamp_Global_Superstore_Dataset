@@ -46,10 +46,10 @@
     if (e) e.preventDefault();
     const usernameEl = document.getElementById("loginUsername");
     const passwordEl = document.getElementById("loginPassword");
-    const errorEl    = document.getElementById("loginError");
-    const btnEl      = document.getElementById("loginBtn");
-    const username   = usernameEl ? usernameEl.value.trim() : "";
-    const password   = passwordEl ? passwordEl.value : "";
+    const errorEl = document.getElementById("loginError");
+    const btnEl = document.getElementById("loginBtn");
+    const username = usernameEl ? usernameEl.value.trim() : "";
+    const password = passwordEl ? passwordEl.value : "";
 
     if (errorEl) errorEl.style.display = "none";
 
@@ -100,7 +100,7 @@
 
   window.togglePasswordVisibility = function () {
     const input = document.getElementById("loginPassword");
-    const icon  = document.getElementById("togglePwIcon");
+    const icon = document.getElementById("togglePwIcon");
     if (!input) return;
     if (input.type === "password") {
       input.type = "text";

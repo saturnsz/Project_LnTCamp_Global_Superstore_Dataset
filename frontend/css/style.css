@@ -1552,3 +1552,62 @@ input, select, textarea { font-family: inherit; }
 }
 
 .app-layout.hidden { display: none !important; }
+
+/* ─── Sidebar User Info & Logout ─────────────── */
+.sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+
+.sidebar-user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.sidebar-user-info { overflow: hidden; white-space: nowrap; }
+.sidebar-user-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.sidebar-user-role { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+
+.sidebar-logout-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: transparent;
+  border: 1px solid rgba(255,80,80,0.25);
+  border-radius: var(--radius-sm);
+  color: #ff7070;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: var(--transition);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.sidebar-logout-btn:hover {
+  background: rgba(255,80,80,0.1);
+  border-color: rgba(255,80,80,0.5);
+  color: #ff5555;
+}
+
+/* Collapsed state */
+.sidebar.collapsed .sidebar-user-info   { display: none; }
+.sidebar.collapsed .sidebar-logout-label { opacity: 0; width: 0; overflow: hidden; }
+.sidebar.collapsed .sidebar-user        { justify-content: center; padding: 8px; }

@@ -123,7 +123,24 @@
       </nav>
 
       <div class="sidebar-footer">
-        <button class="collapse-btn" onclick="toggleSidebar()">
+        <!-- Admin Info -->
+        <div class="sidebar-user">
+          <div class="sidebar-user-avatar">
+            <i class="fa-solid fa-user"></i>
+          </div>
+          <div class="sidebar-user-info">
+            <div class="sidebar-user-name">Admin</div>
+            <div class="sidebar-user-role">Administrator</div>
+          </div>
+        </div>
+
+        <!-- Logout Button -->
+        <button class="sidebar-logout-btn" onclick="handleLogout()">
+          <i class="fa-solid fa-right-from-bracket"></i>
+          <span class="sidebar-logout-label">Logout</span>
+        </button>
+
+        <button class="collapse-btn" onclick="toggleSidebar()" style="margin-top:8px;">
           <span style="font-size:16px;"></span>
           <span class="collapse-btn-label">Collapse</span>
         </button>

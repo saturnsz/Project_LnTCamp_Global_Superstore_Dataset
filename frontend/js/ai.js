@@ -268,12 +268,12 @@ function showRegResult(json, inputData) {
 
   summary.innerHTML =
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
-    '<div>💵 <strong>Sales:</strong> $' + sales.toFixed(2) + '</div>' +
-    '<div>🏷️ <strong>Diskon:</strong> ' + discount + '%</div>' +
-    '<div>📦 <strong>Shipping:</strong> $' + shipping.toFixed(2) + '</div>' +
-    '<div>🔢 <strong>Qty:</strong> ' + qty + '</div>' +
-    '<div>📉 <strong>Discount Impact:</strong> -$' + (sales * discount / 100).toFixed(2) + '</div>' +
-    '<div>📊 <strong>Profit Margin:</strong> ' + marginPct.toFixed(1) + '%</div>' +
+    '<div><i class="fa-solid fa-money-bill-1"></i> <strong>Sales:</strong> $' + sales.toFixed(2) + '</div>' +
+    '<div><i class="fa-solid fa-tag"></i> <strong>Diskon:</strong> ' + discount + '%</div>' +
+    '<div><i class="fa-solid fa-box"></i> <strong>Shipping:</strong> $' + shipping.toFixed(2) + '</div>' +
+    '<div><i class="fa-solid fa-square-poll-horizontal"></i> <strong>Qty:</strong> ' + qty + '</div>' +
+    '<div><i class="fa-solid fa-chart-column"></i> <strong>Discount Impact:</strong> -$' + (sales * discount / 100).toFixed(2) + '</div>' +
+    '<div><i class="fa-solid fa-chart-line"></i> <strong>Profit Margin:</strong> ' + marginPct.toFixed(1) + '%</div>' +
     '</div>';
 }
 

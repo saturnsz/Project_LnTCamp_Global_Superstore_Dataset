@@ -1,4 +1,4 @@
-﻿/* =============================================
+/* =============================================
    StoreIQ Admin — Page Loader
    Loads HTML partials from /pages/ folder
    ============================================= */
@@ -14,6 +14,7 @@
     { id: "customers", file: "/pages/page-customers.html", target: "pageContent" },
     { id: "locations", file: "/pages/page-locations.html", target: "pageContent" },
     { id: "ai",        file: "/pages/page-ai.html",        target: "pageContent" },
+    { id: "about",     file: "/pages/page-about.html",     target: "pageContent" },
   ];
 
   async function loadPartial(file) {

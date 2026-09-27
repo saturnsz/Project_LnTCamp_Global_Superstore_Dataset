@@ -186,7 +186,7 @@ function showClfResult(json) {
 
   result.className = 'ai-result show ' + (json.is_profit ? 'result-profit' : 'result-loss');
 
-  icon.textContent = json.is_profit ? '📈' : '📉';
+  icon.innerHTML = json.is_profit ? '<i class="fa-solid fa-dollar-sign"></i>' : '<i class="fa-solid fa-triangle-exclamation"></i>';
   value.textContent = json.prediction;
   value.className = 'result-value ' + (json.is_profit ? 'profit-val' : 'loss-val');
   conf.textContent = 'Keyakinan model: ' + json.confidence + '%';
@@ -256,7 +256,7 @@ function showRegResult(json, inputData) {
 
   result.className = 'ai-result show ' + (json.is_profitable ? 'result-profit' : 'result-loss');
 
-  icon.textContent = profit >= 0 ? '💰' : '⚠️';
+  icon.innerHTML = profit >= 0 ? '<i class="fa-solid fa-arrow-trend-up"></i>' : '<i class="fa-solid fa-arrow-trend-down"></i>';
   value.textContent = '$' + profit.toFixed(2);
   value.className = 'result-value ' + (profit >= 0 ? 'profit-val' : 'loss-val');
   status.textContent = profit >= 0

@@ -16,7 +16,57 @@
 
 <body>
 
-  <div class="app-layout">
+  <!-- ─── Login Page ──────────────────────────── -->
+  <div id="loginPage" style="display:none;">
+    <div class="login-card">
+
+      <div class="login-logo">
+        <div class="login-logo-icon"><i class="fa-solid fa-store"></i></div>
+        <div class="login-logo-text">StoreIQ Admin</div>
+      </div>
+
+      <div class="login-title">Welcome back</div>
+      <div class="login-sub">Sign in to your admin dashboard</div>
+
+      <form onsubmit="handleLogin(event)">
+        <!-- Username -->
+        <div class="login-field">
+          <label for="loginUsername">Username</label>
+          <div class="login-input-wrap">
+            <i class="fa-solid fa-user input-icon"></i>
+            <input type="text" id="loginUsername" placeholder="Enter username" autocomplete="username">
+          </div>
+        </div>
+
+        <!-- Password -->
+        <div class="login-field">
+          <label for="loginPassword">Password</label>
+          <div class="login-input-wrap">
+            <i class="fa-solid fa-lock input-icon"></i>
+            <input type="password" id="loginPassword" placeholder="Enter password" autocomplete="current-password">
+            <button type="button" class="toggle-pw" onclick="togglePasswordVisibility()" tabindex="-1">
+              <i class="fa-solid fa-eye" id="togglePwIcon"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Error -->
+        <div class="login-error" id="loginError"></div>
+
+        <button type="submit" class="login-btn" id="loginBtn">
+          <i class="fa-solid fa-right-to-bracket" style="margin-right:8px;"></i>Sign In
+        </button>
+      </form>
+
+      <div class="login-hint">
+        Demo: username <span>admin</span> &middot; password bebas apa saja<br>
+        <span style="opacity:0.6;">Sistem ini hanya untuk demonstrasi</span>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="app-layout hidden">
     <div class="mobile-overlay" id="mobileOverlay" onclick="toggleMobileMenu()"></div>
 
     <!-- ─── Sidebar ───────────────────────────── -->
@@ -106,11 +156,24 @@
           <button class="topbar-btn" data-tooltip="Refresh" onclick="refreshCurrentPage()"></button>
           <button class="topbar-btn" data-tooltip="Settings"></button>
           <button class="topbar-btn" data-tooltip="Notifications"></button>
-          <div class="admin-avatar" data-tooltip="Admin" style="display: flex; align-items: center; justify-content: center; color: inherit;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </svg>
+          <div class="admin-avatar-wrap" id="adminAvatarWrap">
+            <div class="admin-avatar" onclick="toggleAdminDropdown()" data-tooltip="Admin">
+              <i class="fa-solid fa-user"></i>
+            </div>
+            <div class="admin-dropdown" id="adminDropdown">
+              <div class="admin-dropdown-header">
+                <div class="admin-dropdown-name"><i class="fa-solid fa-user" style="margin-right:6px;font-size:11px;"></i>Admin</div>
+                <div class="admin-dropdown-badge">
+                  <span class="badge-dot"></span> Logged in as Admin
+                </div>
+              </div>
+              <button class="admin-dropdown-item" onclick="">
+                <i class="fa-solid fa-gear"></i> Settings
+              </button>
+              <button class="admin-dropdown-item logout" onclick="handleLogout()">
+                <i class="fa-solid fa-right-from-bracket"></i> Logout
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -760,6 +823,7 @@
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
 
+  <script src="/js/auth.js"></script>
   <script src="/js/dashboard.js"></script>
   <script src="/js/ai.js"></script>
 </body>

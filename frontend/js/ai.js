@@ -260,8 +260,8 @@ function showRegResult(json, inputData) {
   value.textContent = '$' + profit.toFixed(2);
   value.className = 'result-value ' + (profit >= 0 ? 'profit-val' : 'loss-val');
   status.textContent = profit >= 0
-    ? '✅ STATUS AMAN: Transaksi menghasilkan keuntungan.'
-    : '🚨 PERINGATAN: Transaksi ini diprediksi MERUGIKAN!';
+    ? 'STATUS AMAN: Transaksi menghasilkan keuntungan.'
+    : 'PERINGATAN: Transaksi ini diprediksi MERUGIKAN!';
 
   margin.textContent = marginPct.toFixed(1) + '%';
   setTimeout(function () { bar.style.width = barWidth + '%'; }, 100);

@@ -12,7 +12,7 @@
   let dropdownOpen = false;
 
   /* Init */
-  document.addEventListener("DOMContentLoaded", function () {
+  document.addEventListener("pagesLoaded", function () {
     if (isLoggedIn()) {
       showApp();
     } else {
@@ -121,3 +121,4 @@
   }
 
 })();
+

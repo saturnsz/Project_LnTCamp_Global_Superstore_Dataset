@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 /* ===========================================
    StoreIQ Admin — AI Predictor JS
    Classification & Regression with XGBoost
@@ -46,7 +46,7 @@ function updateSubcategory(prefix) {
 }
 
 // === Initialize subcategories on page load ===
-window.addEventListener('DOMContentLoaded', function () {
+window.addEventListener('pagesLoaded', function () {
   updateSubcategory('clf');
   updateSubcategory('reg');
 });

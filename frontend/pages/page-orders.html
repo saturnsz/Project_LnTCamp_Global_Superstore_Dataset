@@ -1,0 +1,48 @@
+﻿<!-- ══════════════════════════════════════
+   PAGE: ORDERS
+═══════════════════════════════════════ -->
+<div class="page" id="page-orders">
+  <div class="page-header">
+    <h1><i class="fa-solid fa-box" style="margin-right:10px;"></i>Orders</h1>
+    <p>Browse and search all transactions in the Global Superstore dataset.</p>
+  </div>
+  <div class="table-card">
+    <div class="table-toolbar">
+      <div class="search-bar">
+        <span></span>
+        <input type="text" id="ordersSearch" placeholder="Search orders..." oninput="debounceSearch('orders')">
+      </div>
+      <div class="toolbar-spacer"></div>
+      <div class="table-info" id="ordersInfo"></div>
+      <button class="export-btn" onclick="exportTable('orders')"> Export CSV</button>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="data-table" id="ordersTable">
+        <thead>
+          <tr>
+            <th>Order ID</th>
+            <th>Customer</th>
+            <th>Segment</th>
+            <th>Category</th>
+            <th>Sub-Category</th>
+            <th>Sales</th>
+            <th>Profit</th>
+            <th>Discount</th>
+            <th>Qty</th>
+            <th>Ship Mode</th>
+            <th>Priority</th>
+            <th>Market</th>
+            <th>Country</th>
+            <th>Order Date</th>
+          </tr>
+        </thead>
+        <tbody id="ordersTbody">
+          <tr>
+            <td colspan="14" style="text-align:center;padding:40px;color:var(--text-muted);">Loading data...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="pagination" id="ordersPagination"></div>
+  </div>
+</div>

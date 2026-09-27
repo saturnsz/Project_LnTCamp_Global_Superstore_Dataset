@@ -689,7 +689,7 @@ function exportTable(type) {
 }
 
 // ─── Init on Load ─────────────────────────────
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('pagesLoaded', () => {
   navigateTo('dashboard');
   state.initialized['dashboard'] = true;
   initDashboard();

@@ -1,0 +1,41 @@
+﻿<!-- ══════════════════════════════════════
+   PAGE: PRODUCTS
+═══════════════════════════════════════ -->
+<div class="page" id="page-products">
+  <div class="page-header">
+    <h1><i class="fa-solid fa-basket-shopping" style="margin-right:10px;"></i>Products</h1>
+    <p>All products in the Global Superstore catalog with performance metrics.</p>
+  </div>
+  <div class="table-card">
+    <div class="table-toolbar">
+      <div class="search-bar">
+        <span></span>
+        <input type="text" id="productsSearch" placeholder="Search products..." oninput="debounceSearch('products')">
+      </div>
+      <div class="toolbar-spacer"></div>
+      <div class="table-info" id="productsInfo"></div>
+      <button class="export-btn" onclick="exportTable('products')"> Export CSV</button>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="data-table" id="productsTable">
+        <thead>
+          <tr>
+            <th>Product ID</th>
+            <th>Category</th>
+            <th>Sub-Category</th>
+            <th>Product Name</th>
+            <th>Avg Sales</th>
+            <th>Total Profit</th>
+            <th>Times Sold</th>
+          </tr>
+        </thead>
+        <tbody id="productsTbody">
+          <tr>
+            <td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted);">Loading data...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="pagination" id="productsPagination"></div>
+  </div>
+</div>

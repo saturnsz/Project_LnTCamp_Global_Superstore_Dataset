@@ -1,0 +1,41 @@
+﻿<!-- ══════════════════════════════════════
+   PAGE: CUSTOMERS
+═══════════════════════════════════════ -->
+<div class="page" id="page-customers">
+  <div class="page-header">
+    <h1><i class="fa-regular fa-user" style="margin-right:10px;"></i>Customers</h1>
+    <p>Customer directory with spending and loyalty metrics.</p>
+  </div>
+  <div class="table-card">
+    <div class="table-toolbar">
+      <div class="search-bar">
+        <span></span>
+        <input type="text" id="customersSearch" placeholder="Search customers..." oninput="debounceSearch('customers')">
+      </div>
+      <div class="toolbar-spacer"></div>
+      <div class="table-info" id="customersInfo"></div>
+      <button class="export-btn" onclick="exportTable('customers')"> Export CSV</button>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="data-table" id="customersTable">
+        <thead>
+          <tr>
+            <th>Customer ID</th>
+            <th>Name</th>
+            <th>Segment</th>
+            <th>Total Orders</th>
+            <th>Total Sales</th>
+            <th>Total Profit</th>
+            <th>Avg Discount</th>
+          </tr>
+        </thead>
+        <tbody id="customersTbody">
+          <tr>
+            <td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted);">Loading data...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="pagination" id="customersPagination"></div>
+  </div>
+</div>

@@ -1,0 +1,49 @@
+﻿<!-- ─── Login Page ──────────────────────────── -->
+<div id="loginPage" style="display:none;">
+  <div class="login-card">
+
+    <div class="login-logo">
+      <div class="login-logo-icon"><i class="fa-solid fa-store"></i></div>
+      <div class="login-logo-text">StoreIQ Admin</div>
+    </div>
+
+    <div class="login-title">Welcome back</div>
+    <div class="login-sub">Sign in to your admin dashboard</div>
+
+    <form onsubmit="handleLogin(event)">
+      <!-- Username -->
+      <div class="login-field">
+        <label for="loginUsername">Username</label>
+        <div class="login-input-wrap">
+          <i class="fa-solid fa-user input-icon"></i>
+          <input type="text" id="loginUsername" placeholder="Enter username" autocomplete="username">
+        </div>
+      </div>
+
+      <!-- Password -->
+      <div class="login-field">
+        <label for="loginPassword">Password</label>
+        <div class="login-input-wrap">
+          <i class="fa-solid fa-lock input-icon"></i>
+          <input type="password" id="loginPassword" placeholder="Enter password" autocomplete="current-password">
+          <button type="button" class="toggle-pw" onclick="togglePasswordVisibility()" tabindex="-1">
+            <i class="fa-solid fa-eye" id="togglePwIcon"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Error -->
+      <div class="login-error" id="loginError"></div>
+
+      <button type="submit" class="login-btn" id="loginBtn">
+        <i class="fa-solid fa-right-to-bracket" style="margin-right:8px;"></i>Sign In
+      </button>
+    </form>
+
+    <div class="login-hint">
+      Demo: username <span>admin</span> &middot; password bebas apa saja<br>
+      <span style="opacity:0.6;">Sistem ini hanya untuk demonstrasi</span>
+    </div>
+
+  </div>
+</div>

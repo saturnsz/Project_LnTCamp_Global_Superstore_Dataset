@@ -1,0 +1,42 @@
+﻿<!-- ══════════════════════════════════════
+   PAGE: LOCATIONS
+═══════════════════════════════════════ -->
+<div class="page" id="page-locations">
+  <div class="page-header">
+    <h1><i class="fa-solid fa-location-dot" style="margin-right:10px;"></i>Locations</h1>
+    <p>Geographic distribution of orders across global markets.</p>
+  </div>
+  <div class="table-card">
+    <div class="table-toolbar">
+      <div class="search-bar">
+        <span></span>
+        <input type="text" id="locationsSearch" placeholder="Search locations..." oninput="debounceSearch('locations')">
+      </div>
+      <div class="toolbar-spacer"></div>
+      <div class="table-info" id="locationsInfo"></div>
+      <button class="export-btn" onclick="exportTable('locations')"> Export CSV</button>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="data-table" id="locationsTable">
+        <thead>
+          <tr>
+            <th>City</th>
+            <th>State</th>
+            <th>Country</th>
+            <th>Region</th>
+            <th>Market</th>
+            <th>Total Orders</th>
+            <th>Total Sales</th>
+            <th>Total Profit</th>
+          </tr>
+        </thead>
+        <tbody id="locationsTbody">
+          <tr>
+            <td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted);">Loading data...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="pagination" id="locationsPagination"></div>
+  </div>
+</div>

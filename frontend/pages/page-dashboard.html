@@ -1,0 +1,174 @@
+﻿<!-- ══════════════════════════════════════
+   PAGE: DASHBOARD
+═══════════════════════════════════════ -->
+<div class="page active" id="page-dashboard">
+
+  <!-- Greeting -->
+  <div class="greeting-section">
+    <div class="greeting-avatar"></div>
+    <div>
+      <div class="greeting-title">Hello, Admin! </div>
+      <div class="greeting-sub">Here&#39;s what&#39;s happening in your Global Superstore today.</div>
+    </div>
+    <div class="greeting-stats" id="greetingStats">
+      <div class="greeting-stat">
+        <div class="greeting-stat-val" id="gStatOrders">&#8212;</div>
+        <div class="greeting-stat-lbl">Total Orders</div>
+      </div>
+      <div class="greeting-stat">
+        <div class="greeting-stat-val" id="gStatCustomers">&#8212;</div>
+        <div class="greeting-stat-lbl">Customers</div>
+      </div>
+      <div class="greeting-stat">
+        <div class="greeting-stat-val" id="gStatItems">&#8212;</div>
+        <div class="greeting-stat-lbl">Line Items</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card blue">
+      <div class="kpi-header">
+        <div class="kpi-label">Total Revenue</div>
+        <div class="kpi-icon"></div>
+      </div>
+      <div class="kpi-value" id="kpiRevenue">&#8212;</div>
+      <div class="kpi-footer"><span class="badge-up">All Time</span> Gross Sales</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-header">
+        <div class="kpi-label">Total Profit</div>
+        <div class="kpi-icon"></div>
+      </div>
+      <div class="kpi-value" id="kpiProfit">&#8212;</div>
+      <div class="kpi-footer"><span class="badge-up">Net</span> After discount</div>
+    </div>
+    <div class="kpi-card purple">
+      <div class="kpi-header">
+        <div class="kpi-label">Total Orders</div>
+        <div class="kpi-icon"></div>
+      </div>
+      <div class="kpi-value" id="kpiOrders">&#8212;</div>
+      <div class="kpi-footer"><span class="badge-neutral">Unique</span> order IDs</div>
+    </div>
+    <div class="kpi-card orange">
+      <div class="kpi-header">
+        <div class="kpi-label">Customers</div>
+        <div class="kpi-icon"></div>
+      </div>
+      <div class="kpi-value" id="kpiCustomers">&#8212;</div>
+      <div class="kpi-footer"><span class="badge-neutral">Unique</span> customer IDs</div>
+    </div>
+    <div class="kpi-card cyan">
+      <div class="kpi-header">
+        <div class="kpi-label">Avg Discount</div>
+        <div class="kpi-icon"></div>
+      </div>
+      <div class="kpi-value" id="kpiDiscount">&#8212;</div>
+      <div class="kpi-footer"><span class="badge-down">Avg</span> per transaction</div>
+    </div>
+    <div class="kpi-card red">
+      <div class="kpi-header">
+        <div class="kpi-label">Shipping Cost</div>
+        <div class="kpi-icon"></div>
+      </div>
+      <div class="kpi-value" id="kpiShipping">&#8212;</div>
+      <div class="kpi-footer"><span class="badge-down">Total</span> logistics spend</div>
+    </div>
+  </div>
+
+  <!-- Charts Row 1 -->
+  <div class="charts-grid">
+    <div class="chart-card col-8">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Revenue &amp; Profit Trend</div>
+          <div class="chart-subtitle">Annual sales vs profit comparison</div>
+        </div>
+        <span class="chart-badge">By Year</span>
+      </div>
+      <div class="chart-container" style="height:260px;">
+        <canvas id="chartRevenueYear"></canvas>
+      </div>
+    </div>
+    <div class="chart-card col-4">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Sales by Category</div>
+          <div class="chart-subtitle">Breakdown by product group</div>
+        </div>
+      </div>
+      <div class="chart-container" style="height:200px;">
+        <canvas id="chartCategory"></canvas>
+      </div>
+      <div id="categoryLegend" style="margin-top:14px;"></div>
+    </div>
+  </div>
+
+  <!-- Charts Row 2 -->
+  <div class="charts-grid">
+    <div class="chart-card col-6">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Profit by Market</div>
+          <div class="chart-subtitle">Global market performance</div>
+        </div>
+        <span class="chart-badge">Global</span>
+      </div>
+      <div class="chart-container" style="height:240px;">
+        <canvas id="chartMarket"></canvas>
+      </div>
+    </div>
+    <div class="chart-card col-6">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Top Sub-Categories</div>
+          <div class="chart-subtitle">By total revenue</div>
+        </div>
+        <span class="chart-badge">Top 10</span>
+      </div>
+      <div class="chart-container" style="height:240px;">
+        <canvas id="chartSubcat"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts Row 3 -->
+  <div class="charts-grid">
+    <div class="chart-card col-4">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Ship Mode</div>
+          <div class="chart-subtitle">Orders by shipping method</div>
+        </div>
+      </div>
+      <div class="chart-container" style="height:200px;">
+        <canvas id="chartShipMode"></canvas>
+      </div>
+    </div>
+    <div class="chart-card col-4">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Customer Segments</div>
+          <div class="chart-subtitle">Revenue by segment</div>
+        </div>
+      </div>
+      <div class="chart-container" style="height:200px;">
+        <canvas id="chartSegment"></canvas>
+      </div>
+    </div>
+    <div class="chart-card col-4">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Region Performance</div>
+          <div class="chart-subtitle">Sales by region</div>
+        </div>
+      </div>
+      <div class="chart-container" style="height:200px;">
+        <canvas id="chartRegion"></canvas>
+      </div>
+    </div>
+  </div>
+
+</div>

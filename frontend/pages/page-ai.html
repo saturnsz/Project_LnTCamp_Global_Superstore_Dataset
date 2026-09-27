@@ -1,0 +1,279 @@
+﻿<!-- ══════════════════════════════════════
+   PAGE: AI PREDICTOR
+═══════════════════════════════════════ -->
+<div class="page" id="page-ai">
+  <div class="page-header">
+    <h1><i class="fa-solid fa-brain" style="margin-right:10px;"></i>AI Transaction Predictor</h1>
+    <p>Powered by XGBoost &mdash; Classify profit/loss status and estimate profit value for any transaction.</p>
+  </div>
+
+  <div class="ai-layout">
+
+    <!-- ─ Panel 1: Classification ─ -->
+    <div class="ai-panel">
+      <div class="ai-panel-header">
+        <div class="ai-panel-icon clf"></div>
+        <div>
+          <div class="ai-panel-title">Detektor Status Transaksi</div>
+          <div class="ai-panel-desc">Klasifikasi: Apakah transaksi ini PROFIT atau LOSS?</div>
+        </div>
+      </div>
+      <div class="ai-form">
+        <div class="form-grid" id="clfFormGrid">
+          <div class="form-group">
+            <label class="form-label">Sales (USD)</label>
+            <input type="number" class="form-control" id="clf-sales" value="2000" min="0" step="0.01">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Diskon (%)</label>
+            <div class="slider-container">
+              <input type="range" class="form-range" id="clf-discount-range" min="0" max="100" step="1"
+                value="20" oninput="syncSlider('clf-discount', this.value)">
+              <span class="slider-value" id="clf-discount-val">20%</span>
+            </div>
+            <input type="hidden" id="clf-discount" value="20">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Biaya Kirim (USD)</label>
+            <input type="number" class="form-control" id="clf-shipping" value="15" min="0" step="0.01">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Kuantitas</label>
+            <input type="number" class="form-control" id="clf-quantity" value="3" min="1" step="1">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Kategori</label>
+            <select class="form-control" id="clf-category" onchange="updateSubcategory('clf')">
+              <option value="Furniture">Furniture</option>
+              <option value="Office Supplies" selected>Office Supplies</option>
+              <option value="Technology">Technology</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sub-Kategori</label>
+            <select class="form-control" id="clf-subcategory"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Segment</label>
+            <select class="form-control" id="clf-segment">
+              <option value="Consumer" selected>Consumer</option>
+              <option value="Corporate">Corporate</option>
+              <option value="Home Office">Home Office</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Market</label>
+            <select class="form-control" id="clf-market">
+              <option value="US" selected>US</option>
+              <option value="EU">EU</option>
+              <option value="APAC">APAC</option>
+              <option value="LATAM">LATAM</option>
+              <option value="EMEA">EMEA</option>
+              <option value="Africa">Africa</option>
+              <option value="Canada">Canada</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Ship Mode</label>
+            <select class="form-control" id="clf-shipmode">
+              <option value="Standard Class" selected>Standard Class</option>
+              <option value="Second Class">Second Class</option>
+              <option value="First Class">First Class</option>
+              <option value="Same Day">Same Day</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Order Priority</label>
+            <select class="form-control" id="clf-priority">
+              <option value="Medium" selected>Medium</option>
+              <option value="Low">Low</option>
+              <option value="High">High</option>
+              <option value="Critical">Critical</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <label class="form-label">Region</label>
+            <select class="form-control" id="clf-region">
+              <option value="West" selected>West</option>
+              <option value="East">East</option>
+              <option value="Central">Central</option>
+              <option value="South">South</option>
+              <option value="North">North</option>
+              <option value="EMEA">EMEA</option>
+              <option value="EU">EU (deprecated - use EMEA)</option>
+              <option value="Southeast Asia">Southeast Asia</option>
+              <option value="North Asia">North Asia</option>
+              <option value="Oceania">Oceania</option>
+              <option value="Central Asia">Central Asia</option>
+              <option value="Caribbean">Caribbean</option>
+              <option value="Canada">Canada</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="predict-btn clf" id="clfPredictBtn" onclick="predictClassify()">
+          <span class="btn-text"> Deteksi Status Transaksi</span>
+        </button>
+
+        <div class="ai-result" id="clfResult">
+          <div class="result-label">Hasil Prediksi Klasifikasi</div>
+          <div class="result-main">
+            <div class="result-icon" id="clfResultIcon">&#8212;</div>
+            <div>
+              <div class="result-value" id="clfResultValue">&#8212;</div>
+              <div class="result-confidence" id="clfResultConf">&#8212;</div>
+            </div>
+          </div>
+          <div class="confidence-bar">
+            <div class="confidence-bar-label">
+              <span>Probabilitas PROFIT</span>
+              <span id="clfProfitPct">&#8212;</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill profit-bar" id="clfProfitBar" style="width:0%"></div>
+            </div>
+            <div class="confidence-bar-label" style="margin-top:8px;">
+              <span>Probabilitas LOSS</span>
+              <span id="clfLossPct">&#8212;</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill loss-bar" id="clfLossBar" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─ Panel 2: Regression ─ -->
+    <div class="ai-panel">
+      <div class="ai-panel-header regression">
+        <div class="ai-panel-icon reg"></div>
+        <div>
+          <div class="ai-panel-title">Estimasi Profit Transaksi</div>
+          <div class="ai-panel-desc">Regresi: Berapa estimasi nominal profit dalam USD?</div>
+        </div>
+      </div>
+      <div class="ai-form">
+        <div class="form-grid" id="regFormGrid">
+          <div class="form-group">
+            <label class="form-label">Sales (USD)</label>
+            <input type="number" class="form-control" id="reg-sales" value="2000" min="0" step="0.01">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Diskon (%)</label>
+            <div class="slider-container">
+              <input type="range" class="form-range" id="reg-discount-range" min="0" max="100" step="1"
+                value="20" oninput="syncSlider('reg-discount', this.value)">
+              <span class="slider-value" id="reg-discount-val">20%</span>
+            </div>
+            <input type="hidden" id="reg-discount" value="20">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Biaya Kirim (USD)</label>
+            <input type="number" class="form-control" id="reg-shipping" value="15" min="0" step="0.01">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Kuantitas</label>
+            <input type="number" class="form-control" id="reg-quantity" value="3" min="1" step="1">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Kategori</label>
+            <select class="form-control" id="reg-category" onchange="updateSubcategory('reg')">
+              <option value="Furniture">Furniture</option>
+              <option value="Office Supplies" selected>Office Supplies</option>
+              <option value="Technology">Technology</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sub-Kategori</label>
+            <select class="form-control" id="reg-subcategory"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Segment</label>
+            <select class="form-control" id="reg-segment">
+              <option value="Consumer" selected>Consumer</option>
+              <option value="Corporate">Corporate</option>
+              <option value="Home Office">Home Office</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Market</label>
+            <select class="form-control" id="reg-market">
+              <option value="US" selected>US</option>
+              <option value="EU">EU</option>
+              <option value="APAC">APAC</option>
+              <option value="LATAM">LATAM</option>
+              <option value="EMEA">EMEA</option>
+              <option value="Africa">Africa</option>
+              <option value="Canada">Canada</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Ship Mode</label>
+            <select class="form-control" id="reg-shipmode">
+              <option value="Standard Class" selected>Standard Class</option>
+              <option value="Second Class">Second Class</option>
+              <option value="First Class">First Class</option>
+              <option value="Same Day">Same Day</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Order Priority</label>
+            <select class="form-control" id="reg-priority">
+              <option value="Medium" selected>Medium</option>
+              <option value="Low">Low</option>
+              <option value="High">High</option>
+              <option value="Critical">Critical</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <label class="form-label">Region</label>
+            <select class="form-control" id="reg-region">
+              <option value="West" selected>West</option>
+              <option value="East">East</option>
+              <option value="Central">Central</option>
+              <option value="South">South</option>
+              <option value="North">North</option>
+              <option value="EMEA">EMEA</option>
+              <option value="Southeast Asia">Southeast Asia</option>
+              <option value="North Asia">North Asia</option>
+              <option value="Oceania">Oceania</option>
+              <option value="Central Asia">Central Asia</option>
+              <option value="Caribbean">Caribbean</option>
+              <option value="Canada">Canada</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="predict-btn reg" id="regPredictBtn" onclick="predictRegress()">
+          <span class="btn-text"> Estimasi Profit Sekarang</span>
+        </button>
+
+        <div class="ai-result" id="regResult">
+          <div class="result-label">Hasil Estimasi Profit (Regresi)</div>
+          <div class="result-main">
+            <div class="result-icon" id="regResultIcon">&#8212;</div>
+            <div>
+              <div class="result-value" id="regResultValue">&#8212;</div>
+              <div class="result-confidence" id="regResultStatus">&#8212;</div>
+            </div>
+          </div>
+          <div class="confidence-bar" style="margin-top:16px;">
+            <div class="confidence-bar-label">
+              <span>Profit Margin Ratio</span>
+              <span id="regMarginPct">&#8212;</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill neutral-bar" id="regMarginBar" style="width:0%"></div>
+            </div>
+          </div>
+          <div
+            style="margin-top:14px;padding:12px;background:var(--bg-elevated);border-radius:var(--radius-sm);font-size:12px;color:var(--text-secondary);"
+            id="regSummary"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+<!-- end ai page -->

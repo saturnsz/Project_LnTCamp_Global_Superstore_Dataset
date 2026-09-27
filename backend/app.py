@@ -25,20 +25,42 @@ def _load_model(folder: str, scaler_file: str, cols_file: str, model_file: str):
     model  = joblib.load(os.path.join(BASE_DIR, folder, model_file))
     return scaler, cols, model
 
-try:
-    scaler_clf, cols_clf, model_clf = _load_model(
-        'model_klasifikasi',
-        'scaler_clf.pkl', 'training_columns_clf.pkl', 'xgboost_clf_model.pkl',
-    )
-    scaler_reg, cols_reg, model_reg = _load_model(
-        'model_regresi',
-        'scaler_reg.pkl', 'training_columns_reg.pkl', 'xgboost_reg_model.pkl',
-    )
-    print("[OK] ML models loaded successfully")
-except Exception as exc:
-    MODEL_ERROR = str(exc)
-    print(f"[WARN] Could not load ML models: {exc}")
-    print("   Dashboard data features will still work.")
+_models_loaded = False
+
+def ensure_models_loaded():
+    global scaler_clf, cols_clf, model_clf
+    global scaler_reg, cols_reg, model_reg
+    global MODEL_ERROR, _models_loaded
+
+    if _models_loaded or MODEL_ERROR:
+        return
+
+    try:
+        # Set OMP_NUM_THREADS to 1 to prevent xgboost from hanging in WSGI workers
+        os.environ['OMP_NUM_THREADS'] = '1'
+        
+        scaler_clf, cols_clf, model_clf = _load_model(
+            'model_klasifikasi',
+            'scaler_clf.pkl', 'training_columns_clf.pkl', 'xgboost_clf_model.pkl',
+        )
+        scaler_reg, cols_reg, model_reg = _load_model(
+            'model_regresi',
+            'scaler_reg.pkl', 'training_columns_reg.pkl', 'xgboost_reg_model.pkl',
+        )
+        
+        # Configure model to use single thread to avoid OpenMP deadlock
+        if hasattr(model_clf, 'set_params'):
+            model_clf.set_params(n_jobs=1)
+        if hasattr(model_reg, 'set_params'):
+            model_reg.set_params(n_jobs=1)
+            
+        print("[OK] ML models loaded successfully")
+        _models_loaded = True
+    except Exception as exc:
+        MODEL_ERROR = str(exc)
+        print(f"[WARN] Could not load ML models: {exc}")
+        print("   Dashboard data features will still work.")
+
 
 # ─── App Instance ─────────────────────────────────────────────────────────────
 
@@ -457,6 +479,7 @@ def locations():
 
 @app.route("/api/predict/classify", methods=["POST"])
 def predict_classify():
+    ensure_models_loaded()
     if MODEL_ERROR:
         return jsonify({"detail": f"ML models tidak dapat dimuat: {MODEL_ERROR}"}), 503
     try:
@@ -490,6 +513,7 @@ def predict_classify():
 
 @app.route("/api/predict/regress", methods=["POST"])
 def predict_regress():
+    ensure_models_loaded()
     if MODEL_ERROR:
         return jsonify({"detail": f"ML models tidak dapat dimuat: {MODEL_ERROR}"}), 503
     try:

@@ -161,9 +161,38 @@ def index():
 
 # ─── KPI Endpoint ─────────────────────────────────────────────────────────────
 
+def _build_filter_clause(args):
+    """Build WHERE clause and params from request filter args."""
+    conditions = []
+    params = []
+    date_start = args.get('date_start', '').strip()
+    date_end   = args.get('date_end', '').strip()
+    region     = args.get('region', '').strip()
+    market     = args.get('market', '').strip()
+
+    if date_start:
+        conditions.append("o.order_date >= ?")
+        params.append(date_start)
+    if date_end:
+        conditions.append("o.order_date <= ?")
+        params.append(date_end)
+    if region:
+        conditions.append("l.region = ?")
+        params.append(region)
+    if market:
+        conditions.append("l.market = ?")
+        params.append(market)
+
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+    needs_loc = bool(region or market)
+    return where, tuple(params), needs_loc
+
+
 @app.route("/api/kpi", methods=["GET"])
 def kpi():
-    data = query_one("""
+    where, params, needs_loc = _build_filter_clause(request.args)
+    loc_join = "JOIN dim_locations l ON o.location_id = l.location_id" if needs_loc else "LEFT JOIN dim_locations l ON o.location_id = l.location_id"
+    data = query_one(f"""
         SELECT
             ROUND(SUM(oi.sales), 2)         AS total_revenue,
             ROUND(SUM(oi.profit), 2)        AS total_profit,
@@ -172,65 +201,91 @@ def kpi():
             ROUND(AVG(oi.discount)*100, 1)  AS avg_discount_pct,
             ROUND(SUM(oi.shipping_cost), 2) AS total_shipping_cost,
             COUNT(oi.row_id)                AS total_items,
-            ROUND(AVG(oi.quantity), 1)      AS avg_quantity
+            ROUND(AVG(oi.quantity), 1)      AS avg_quantity,
+            ROUND(SUM(oi.quantity), 0)      AS total_quantity
         FROM order_items oi
         JOIN orders o ON oi.order_key = o.order_key
-    """)
+        {loc_join}
+        {where}
+    """, params)
     return jsonify(data)
 
 # ─── Chart Endpoints ──────────────────────────────────────────────────────────
 
 @app.route("/api/revenue-by-year", methods=["GET"])
 def revenue_by_year():
-    data = query("""
+    where, params, needs_loc = _build_filter_clause(request.args)
+    loc_join = "JOIN dim_locations l ON o.location_id = l.location_id" if needs_loc else "LEFT JOIN dim_locations l ON o.location_id = l.location_id"
+    data = query(f"""
         SELECT oi.year,
-               ROUND(SUM(oi.sales),2)  AS revenue,
-               ROUND(SUM(oi.profit),2) AS profit
+               ROUND(SUM(oi.sales),2)    AS revenue,
+               ROUND(SUM(oi.profit),2)   AS profit,
+               ROUND(SUM(oi.quantity),0) AS quantity
         FROM order_items oi
+        JOIN orders o ON oi.order_key = o.order_key
+        {loc_join}
+        {where}
         GROUP BY oi.year
         ORDER BY oi.year
-    """)
+    """, params)
     return jsonify(data)
 
 @app.route("/api/sales-by-category", methods=["GET"])
 def sales_by_category():
-    data = query("""
+    where, params, needs_loc = _build_filter_clause(request.args)
+    loc_join = "JOIN dim_locations l ON o.location_id = l.location_id" if needs_loc else "LEFT JOIN dim_locations l ON o.location_id = l.location_id"
+    data = query(f"""
         SELECT p.category,
-               ROUND(SUM(oi.sales),2)  AS sales,
-               ROUND(SUM(oi.profit),2) AS profit
+               ROUND(SUM(oi.sales),2)    AS sales,
+               ROUND(SUM(oi.profit),2)   AS profit,
+               ROUND(SUM(oi.quantity),0) AS quantity,
+               ROUND(AVG(oi.sales/NULLIF(oi.quantity,0)),2) AS avg_unit_price
         FROM order_items oi
+        JOIN orders o ON oi.order_key = o.order_key
         JOIN dim_products p ON oi.product_id = p.product_id
+        {loc_join}
+        {where}
         GROUP BY p.category
         ORDER BY sales DESC
-    """)
+    """, params)
     return jsonify(data)
 
 @app.route("/api/profit-by-market", methods=["GET"])
 def profit_by_market():
-    data = query("""
+    where, params, needs_loc = _build_filter_clause(request.args)
+    data = query(f"""
         SELECT l.market,
-               ROUND(SUM(oi.sales),2)  AS sales,
-               ROUND(SUM(oi.profit),2) AS profit
+               ROUND(SUM(oi.sales),2)    AS sales,
+               ROUND(SUM(oi.profit),2)   AS profit,
+               ROUND(SUM(oi.quantity),0) AS quantity
         FROM order_items oi
         JOIN orders o ON oi.order_key = o.order_key
         JOIN dim_locations l ON o.location_id = l.location_id
+        {where}
         GROUP BY l.market
         ORDER BY profit DESC
-    """)
+    """, params)
     return jsonify(data)
 
 @app.route("/api/top-subcategory", methods=["GET"])
 def top_subcategory():
-    data = query("""
+    where, params, needs_loc = _build_filter_clause(request.args)
+    loc_join = "JOIN dim_locations l ON o.location_id = l.location_id" if needs_loc else "LEFT JOIN dim_locations l ON o.location_id = l.location_id"
+    data = query(f"""
         SELECT p.sub_category,
-               ROUND(SUM(oi.sales),2)  AS sales,
-               ROUND(SUM(oi.profit),2) AS profit
+               ROUND(SUM(oi.sales),2)    AS sales,
+               ROUND(SUM(oi.profit),2)   AS profit,
+               ROUND(SUM(oi.quantity),0) AS quantity,
+               ROUND(AVG(oi.sales/NULLIF(oi.quantity,0)),2) AS avg_unit_price
         FROM order_items oi
+        JOIN orders o ON oi.order_key = o.order_key
         JOIN dim_products p ON oi.product_id = p.product_id
+        {loc_join}
+        {where}
         GROUP BY p.sub_category
         ORDER BY sales DESC
         LIMIT 10
-    """)
+    """, params)
     return jsonify(data)
 
 @app.route("/api/orders-by-shipmode", methods=["GET"])
@@ -276,33 +331,144 @@ def profit_margin_trend():
 
 @app.route("/api/segment-stats", methods=["GET"])
 def segment_stats():
-    data = query("""
+    where, params, needs_loc = _build_filter_clause(request.args)
+    loc_join = "JOIN dim_locations l ON o.location_id = l.location_id" if needs_loc else "LEFT JOIN dim_locations l ON o.location_id = l.location_id"
+    data = query(f"""
         SELECT c.segment,
                COUNT(DISTINCT c.customer_id) AS customers,
                COUNT(DISTINCT o.order_key)   AS orders,
                ROUND(SUM(oi.sales),2)         AS sales,
-               ROUND(SUM(oi.profit),2)        AS profit
+               ROUND(SUM(oi.profit),2)        AS profit,
+               ROUND(SUM(oi.quantity),0)      AS quantity
         FROM dim_customers c
         JOIN orders o ON c.customer_id = o.customer_id
         JOIN order_items oi ON o.order_key = oi.order_key
+        {loc_join}
+        {where}
         GROUP BY c.segment
         ORDER BY sales DESC
-    """)
+    """, params)
     return jsonify(data)
 
 @app.route("/api/region-stats", methods=["GET"])
 def region_stats():
-    data = query("""
+    where, params, needs_loc = _build_filter_clause(request.args)
+    data = query(f"""
         SELECT l.region,
-               ROUND(SUM(oi.sales),2)  AS sales,
-               ROUND(SUM(oi.profit),2) AS profit,
+               ROUND(SUM(oi.sales),2)         AS sales,
+               ROUND(SUM(oi.profit),2)        AS profit,
+               COUNT(DISTINCT o.order_key)    AS orders,
+               ROUND(SUM(oi.quantity),0)      AS quantity,
+               ROUND(AVG(oi.sales/NULLIF(oi.quantity,0)),2) AS avg_unit_price
+        FROM order_items oi
+        JOIN orders o ON oi.order_key = o.order_key
+        JOIN dim_locations l ON o.location_id = l.location_id
+        {where}
+        GROUP BY l.region
+        ORDER BY sales DESC
+    """, params)
+    return jsonify(data)
+
+
+@app.route("/api/region-drilldown", methods=["GET"])
+def region_drilldown():
+    """Deep-dive into a specific region: top products, segments, categories."""
+    region = request.args.get('region', '').strip()
+    if not region:
+        return jsonify({"error": "region param required"}), 400
+
+    # Top sub-categories in this region
+    top_subcat = query("""
+        SELECT p.sub_category,
+               p.category,
+               ROUND(SUM(oi.sales),2)    AS sales,
+               ROUND(SUM(oi.profit),2)   AS profit,
+               ROUND(SUM(oi.quantity),0) AS quantity,
+               ROUND(AVG(oi.sales/NULLIF(oi.quantity,0)),2) AS avg_unit_price
+        FROM order_items oi
+        JOIN orders o ON oi.order_key = o.order_key
+        JOIN dim_locations l ON o.location_id = l.location_id
+        JOIN dim_products p ON oi.product_id = p.product_id
+        WHERE l.region = ?
+        GROUP BY p.sub_category
+        ORDER BY sales DESC
+        LIMIT 8
+    """, (region,))
+
+    # Segment breakdown for this region
+    segments = query("""
+        SELECT c.segment,
+               ROUND(SUM(oi.sales),2)    AS sales,
+               ROUND(SUM(oi.profit),2)   AS profit,
+               ROUND(SUM(oi.quantity),0) AS quantity,
                COUNT(DISTINCT o.order_key) AS orders
         FROM order_items oi
         JOIN orders o ON oi.order_key = o.order_key
         JOIN dim_locations l ON o.location_id = l.location_id
-        GROUP BY l.region
+        JOIN dim_customers c ON o.customer_id = c.customer_id
+        WHERE l.region = ?
+        GROUP BY c.segment
         ORDER BY sales DESC
-    """)
+    """, (region,))
+
+    # Year trend for this region
+    trend = query("""
+        SELECT oi.year,
+               ROUND(SUM(oi.sales),2)    AS sales,
+               ROUND(SUM(oi.profit),2)   AS profit,
+               ROUND(SUM(oi.quantity),0) AS quantity
+        FROM order_items oi
+        JOIN orders o ON oi.order_key = o.order_key
+        JOIN dim_locations l ON o.location_id = l.location_id
+        WHERE l.region = ?
+        GROUP BY oi.year
+        ORDER BY oi.year
+    """, (region,))
+
+    # Top countries in this region
+    countries = query("""
+        SELECT l.country,
+               ROUND(SUM(oi.sales),2)    AS sales,
+               ROUND(SUM(oi.profit),2)   AS profit,
+               ROUND(SUM(oi.quantity),0) AS quantity
+        FROM order_items oi
+        JOIN orders o ON oi.order_key = o.order_key
+        JOIN dim_locations l ON o.location_id = l.location_id
+        WHERE l.region = ?
+        GROUP BY l.country
+        ORDER BY sales DESC
+        LIMIT 8
+    """, (region,))
+
+    return jsonify({
+        "region": region,
+        "top_subcategories": top_subcat,
+        "segments": segments,
+        "trend": trend,
+        "top_countries": countries,
+    })
+
+
+@app.route("/api/quantity-stats", methods=["GET"])
+def quantity_stats():
+    """Quantity vs Revenue analysis to surface unit-price differences."""
+    where, params, needs_loc = _build_filter_clause(request.args)
+    loc_join = "JOIN dim_locations l ON o.location_id = l.location_id" if needs_loc else "LEFT JOIN dim_locations l ON o.location_id = l.location_id"
+    data = query(f"""
+        SELECT p.sub_category,
+               ROUND(SUM(oi.sales),2)    AS revenue,
+               ROUND(SUM(oi.quantity),0) AS quantity,
+               ROUND(AVG(oi.sales/NULLIF(oi.quantity,0)),2) AS avg_unit_price,
+               ROUND(SUM(oi.profit),2)   AS profit
+        FROM order_items oi
+        JOIN orders o ON oi.order_key = o.order_key
+        JOIN dim_products p ON oi.product_id = p.product_id
+        {loc_join}
+        {where}
+        GROUP BY p.sub_category
+        ORDER BY revenue DESC
+        LIMIT 12
+    """, params)
     return jsonify(data)
 
 # ─── Table Endpoints ──────────────────────────────────────────────────────────
@@ -527,10 +693,76 @@ def predict_regress():
 
         profit_est = float(model_reg.predict(df_scaled)[0])
 
+        if profit_est > 0:
+            net_status = "PROFIT"
+        elif profit_est == 0:
+            net_status = "BREAK EVEN"
+        else:
+            net_status = "LOSS"
+
         return jsonify({
             "status":           "success",
             "estimated_profit": round(profit_est, 2),
             "is_profitable":    profit_est > 0,
+            "is_break_even":    profit_est == 0,
+            "net_status":       net_status,
+        })
+    except ValidationError as e:
+        return jsonify(e.errors()), 400
+    except Exception as exc:
+        return jsonify({"detail": str(exc)}), 500
+
+
+@app.route("/api/predict/combined", methods=["POST"])
+def predict_combined():
+    """Run both classification and regression in one request."""
+    ensure_models_loaded()
+    if MODEL_ERROR:
+        return jsonify({"detail": f"ML models tidak dapat dimuat: {MODEL_ERROR}"}), 503
+    try:
+        payload = PredictInput(**request.json)
+
+        # ── Classification ──
+        df_clf = build_input_df(payload, cols_clf)
+        df_clf_scaled = df_clf.copy()
+        numeric_cols_clf = _get_numeric_cols(scaler_clf)
+        df_clf_scaled[numeric_cols_clf] = scaler_clf.transform(df_clf[numeric_cols_clf])
+        pred  = model_clf.predict(df_clf_scaled)[0]
+        proba = model_clf.predict_proba(df_clf_scaled)[0]
+        label        = "PROFIT" if pred == 1 else "LOSS"
+        profit_prob  = round(float(proba[1]) * 100, 1) if len(proba) > 1 else round(float(max(proba)) * 100, 1)
+        confidence   = round(float(max(proba)) * 100, 1)
+        clf_result = {
+            "prediction":         label,
+            "is_profit":          bool(pred == 1),
+            "confidence":         confidence,
+            "profit_probability": profit_prob,
+            "loss_probability":   round(100.0 - profit_prob, 1),
+        }
+
+        # ── Regression ──
+        df_reg = build_input_df(payload, cols_reg)
+        df_reg_scaled = df_reg.copy()
+        numeric_cols_reg = _get_numeric_cols(scaler_reg)
+        df_reg_scaled[numeric_cols_reg] = scaler_reg.transform(df_reg[numeric_cols_reg])
+        profit_est = float(model_reg.predict(df_reg_scaled)[0])
+        if profit_est > 0:
+            net_status = "PROFIT"
+        elif profit_est == 0:
+            net_status = "BREAK EVEN"
+        else:
+            net_status = "LOSS"
+        reg_result = {
+            "estimated_profit": round(profit_est, 2),
+            "is_profitable":    profit_est > 0,
+            "is_break_even":    profit_est == 0,
+            "net_status":       net_status,
+        }
+
+        return jsonify({
+            "status":         "success",
+            "classification": clf_result,
+            "regression":     reg_result,
         })
     except ValidationError as e:
         return jsonify(e.errors()), 400

@@ -1,7 +1,15 @@
-﻿<!-- ══════════════════════════════════════
+<!-- ══════════════════════════════════════
    PAGE: DASHBOARD
 ═══════════════════════════════════════ -->
 <div class="page active" id="page-dashboard">
+
+  <!-- Dashboard Loading Overlay -->
+  <div class="dashboard-loading-overlay" id="dashboardLoadingOverlay">
+    <div class="dashboard-loading-inner">
+      <div class="dashboard-loading-spinner"></div>
+      <div class="dashboard-loading-text">Loading dashboard data…</div>
+    </div>
+  </div>
 
   <!-- Greeting -->
   <div class="greeting-section">
@@ -23,6 +31,61 @@
         <div class="greeting-stat-val" id="gStatItems">&#8212;</div>
         <div class="greeting-stat-lbl">Line Items</div>
       </div>
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="filter-bar" id="dashboardFilterBar">
+    <div class="filter-bar-inner">
+      <span class="filter-bar-label"><i class="fa-solid fa-filter"></i> Filter</span>
+      <div class="filter-group">
+        <label class="filter-label">From</label>
+        <input type="date" class="filter-control" id="filterDateStart" value="2011-01-01">
+      </div>
+      <div class="filter-group">
+        <label class="filter-label">To</label>
+        <input type="date" class="filter-control" id="filterDateEnd" value="2014-12-31">
+      </div>
+      <div class="filter-group">
+        <label class="filter-label">Region</label>
+        <select class="filter-control" id="filterRegion">
+          <option value="">All Regions</option>
+          <option>West</option>
+          <option>East</option>
+          <option>Central</option>
+          <option>South</option>
+          <option>North</option>
+          <option>EMEA</option>
+          <option>Southeast Asia</option>
+          <option>North Asia</option>
+          <option>Oceania</option>
+          <option>Central Asia</option>
+          <option>Caribbean</option>
+          <option>Canada</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label class="filter-label">Market</label>
+        <select class="filter-control" id="filterMarket">
+          <option value="">All Markets</option>
+          <option>US</option>
+          <option>EU</option>
+          <option>APAC</option>
+          <option>LATAM</option>
+          <option>EMEA</option>
+          <option>Africa</option>
+          <option>Canada</option>
+        </select>
+      </div>
+      <button class="filter-apply-btn" id="filterApplyBtn" onclick="applyDashboardFilter()">
+        <i class="fa-solid fa-magnifying-glass"></i> Apply
+      </button>
+      <button class="filter-reset-btn" onclick="resetDashboardFilter()">
+        <i class="fa-solid fa-rotate-left"></i> Reset
+      </button>
+    </div>
+    <div class="filter-active-tag" id="filterActiveTag" style="display:none;">
+      <i class="fa-solid fa-circle-exclamation"></i> Filter active
     </div>
   </div>
 
@@ -62,19 +125,19 @@
     </div>
     <div class="kpi-card cyan">
       <div class="kpi-header">
+        <div class="kpi-label">Total Quantity</div>
+        <div class="kpi-icon"></div>
+      </div>
+      <div class="kpi-value" id="kpiQuantity">&#8212;</div>
+      <div class="kpi-footer"><span class="badge-neutral">Units</span> sold across all orders</div>
+    </div>
+    <div class="kpi-card red">
+      <div class="kpi-header">
         <div class="kpi-label">Avg Discount</div>
         <div class="kpi-icon"></div>
       </div>
       <div class="kpi-value" id="kpiDiscount">&#8212;</div>
       <div class="kpi-footer"><span class="badge-down">Avg</span> per transaction</div>
-    </div>
-    <div class="kpi-card red">
-      <div class="kpi-header">
-        <div class="kpi-label">Shipping Cost</div>
-        <div class="kpi-icon"></div>
-      </div>
-      <div class="kpi-value" id="kpiShipping">&#8212;</div>
-      <div class="kpi-footer"><span class="badge-down">Total</span> logistics spend</div>
     </div>
   </div>
 
@@ -83,8 +146,8 @@
     <div class="chart-card col-8">
       <div class="chart-header">
         <div>
-          <div class="chart-title">Revenue &amp; Profit Trend</div>
-          <div class="chart-subtitle">Annual sales vs profit comparison</div>
+          <div class="chart-title">Revenue, Profit &amp; Quantity Trend</div>
+          <div class="chart-subtitle">Annual comparison of sales, profit, and units sold</div>
         </div>
         <span class="chart-badge">By Year</span>
       </div>
@@ -96,7 +159,7 @@
       <div class="chart-header">
         <div>
           <div class="chart-title">Sales by Category</div>
-          <div class="chart-subtitle">Breakdown by product group</div>
+          <div class="chart-subtitle">Revenue &amp; quantity by product group</div>
         </div>
       </div>
       <div class="chart-container" style="height:200px;">
@@ -111,30 +174,64 @@
     <div class="chart-card col-6">
       <div class="chart-header">
         <div>
-          <div class="chart-title">Profit by Market</div>
-          <div class="chart-subtitle">Global market performance</div>
+          <div class="chart-title">Revenue vs Quantity by Sub-Category</div>
+          <div class="chart-subtitle">High revenue doesn&#39;t always mean high volume — spot unit price gaps</div>
         </div>
-        <span class="chart-badge">Global</span>
+        <span class="chart-badge">Bubble</span>
       </div>
-      <div class="chart-container" style="height:240px;">
-        <canvas id="chartMarket"></canvas>
+      <div class="chart-container" style="height:260px;">
+        <canvas id="chartQuantityVsRevenue"></canvas>
       </div>
     </div>
     <div class="chart-card col-6">
       <div class="chart-header">
         <div>
-          <div class="chart-title">Top Sub-Categories</div>
-          <div class="chart-subtitle">By total revenue</div>
+          <div class="chart-title">Profit by Market</div>
+          <div class="chart-subtitle">Global market sales vs profit comparison</div>
         </div>
-        <span class="chart-badge">Top 10</span>
+        <span class="chart-badge">Global</span>
       </div>
-      <div class="chart-container" style="height:240px;">
-        <canvas id="chartSubcat"></canvas>
+      <div class="chart-container" style="height:260px;">
+        <canvas id="chartMarket"></canvas>
       </div>
     </div>
   </div>
 
   <!-- Charts Row 3 -->
+  <div class="charts-grid">
+    <div class="chart-card col-6">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Top Sub-Categories</div>
+          <div class="chart-subtitle">Toggle revenue vs quantity to see unit price effect</div>
+        </div>
+        <div class="chart-toggle-group">
+          <button class="chart-toggle-btn active" id="subcatToggleRevenue" onclick="toggleSubcatMetric('sales', this)">Revenue</button>
+          <button class="chart-toggle-btn" id="subcatToggleQty" onclick="toggleSubcatMetric('quantity', this)">Quantity</button>
+        </div>
+      </div>
+      <div class="chart-container" style="height:240px;">
+        <canvas id="chartSubcat"></canvas>
+      </div>
+    </div>
+    <div class="chart-card col-6">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Region Performance</div>
+          <div class="chart-subtitle">Click a bar to explore why a region performs well</div>
+        </div>
+        <div class="chart-toggle-group">
+          <button class="chart-toggle-btn active" id="regionToggleRevenue" onclick="toggleRegionMetric('sales', this)">Revenue</button>
+          <button class="chart-toggle-btn" id="regionToggleQty" onclick="toggleRegionMetric('quantity', this)">Quantity</button>
+        </div>
+      </div>
+      <div class="chart-container" style="height:240px;">
+        <canvas id="chartRegion"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts Row 4 -->
   <div class="charts-grid">
     <div class="chart-card col-4">
       <div class="chart-header">
@@ -151,7 +248,11 @@
       <div class="chart-header">
         <div>
           <div class="chart-title">Customer Segments</div>
-          <div class="chart-subtitle">Revenue by segment</div>
+          <div class="chart-subtitle">Revenue &amp; quantity by segment</div>
+        </div>
+        <div class="chart-toggle-group">
+          <button class="chart-toggle-btn active" id="segmentToggleRevenue" onclick="toggleSegmentMetric('sales', this)">Revenue</button>
+          <button class="chart-toggle-btn" id="segmentToggleQty" onclick="toggleSegmentMetric('quantity', this)">Quantity</button>
         </div>
       </div>
       <div class="chart-container" style="height:200px;">
@@ -161,14 +262,49 @@
     <div class="chart-card col-4">
       <div class="chart-header">
         <div>
-          <div class="chart-title">Region Performance</div>
-          <div class="chart-subtitle">Sales by region</div>
+          <div class="chart-title">Avg Unit Price by Sub-Category</div>
+          <div class="chart-subtitle">Revenue driven by price or volume?</div>
         </div>
       </div>
       <div class="chart-container" style="height:200px;">
-        <canvas id="chartRegion"></canvas>
+        <canvas id="chartAvgPrice"></canvas>
       </div>
     </div>
   </div>
 
+</div>
+
+<!-- Region Drill-Down Modal -->
+<div class="drilldown-backdrop" id="drilldownBackdrop" onclick="closeDrilldown()"></div>
+<div class="drilldown-modal" id="drilldownModal">
+  <div class="drilldown-header">
+    <div>
+      <div class="drilldown-title" id="drilldownTitle">Region Explorer</div>
+      <div class="drilldown-sub" id="drilldownSub">Deep-dive analysis — why does this region perform this way?</div>
+    </div>
+    <button class="drilldown-close" onclick="closeDrilldown()"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="drilldown-body">
+    <div class="drilldown-section">
+      <div class="drilldown-section-title"><i class="fa-solid fa-chart-line"></i> Annual Revenue &amp; Profit Trend</div>
+      <div class="chart-container" style="height:180px;"><canvas id="drillTrend"></canvas></div>
+    </div>
+    <div class="drilldown-section">
+      <div class="drilldown-section-title"><i class="fa-solid fa-list-ol"></i> Top Sub-Categories in This Region</div>
+      <div class="drilldown-table-wrap">
+        <table class="drilldown-table">
+          <thead><tr><th>Sub-Category</th><th>Category</th><th>Revenue</th><th>Qty</th><th>Avg Unit Price</th><th>Profit</th></tr></thead>
+          <tbody id="drillSubcatBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="drilldown-section">
+      <div class="drilldown-section-title"><i class="fa-solid fa-users"></i> Segment Breakdown</div>
+      <div id="drillSegments" class="drilldown-segments"></div>
+    </div>
+    <div class="drilldown-section">
+      <div class="drilldown-section-title"><i class="fa-solid fa-earth-asia"></i> Top Countries</div>
+      <div class="chart-container" style="height:180px;"><canvas id="drillCountries"></canvas></div>
+    </div>
+  </div>
 </div>

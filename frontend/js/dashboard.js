@@ -17,6 +17,18 @@ const state = {
   },
   charts: {},
   initialized: {},
+  // Dashboard cached data for toggle charts
+  dashboardData: {
+    subcatRaw: [],
+    regionRaw: [],
+    segmentRaw: [],
+    quantityRaw: [],
+    subcatMetric: 'sales',
+    regionMetric: 'sales',
+    segmentMetric: 'sales',
+  },
+  // Active dashboard filters
+  dashboardFilters: {},
 };
 
 // ─── Chart.js Global Defaults ─────────────────
@@ -67,6 +79,13 @@ function profitBadge(profit) {
   return `<span class="badge ${cls}">${sign}$${Math.abs(profit).toFixed(2)}</span>`;
 }
 
+function netStatusBadge(profit) {
+  if (profit == null) return '<span class="badge badge-muted">—</span>';
+  if (profit > 0)  return '<span class="badge badge-success">PROFIT</span>';
+  if (profit === 0) return '<span class="badge badge-neutral">BREAK EVEN</span>';
+  return '<span class="badge badge-danger">LOSS</span>';
+}
+
 function segmentBadge(seg) {
   const map = { 'Consumer': 'badge-info', 'Corporate': 'badge-purple', 'Home Office': 'badge-cyan' };
   return `<span class="badge ${map[seg] || 'badge-muted'}">${seg}</span>`;
@@ -96,11 +115,34 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// ─── Build filter query string ─────────────────
+function buildFilterQS(extra) {
+  const f = state.dashboardFilters;
+  const params = new URLSearchParams();
+  if (f.date_start) params.set('date_start', f.date_start);
+  if (f.date_end)   params.set('date_end',   f.date_end);
+  if (f.region)     params.set('region',     f.region);
+  if (f.market)     params.set('market',     f.market);
+  if (extra)        Object.entries(extra).forEach(([k,v]) => params.set(k, v));
+  const qs = params.toString();
+  return qs ? '?' + qs : '';
+}
+
+// ─── Dashboard Loading Overlay ─────────────────
+function showDashboardLoading() {
+  const el = document.getElementById('dashboardLoadingOverlay');
+  if (el) { el.classList.add('visible'); }
+}
+function hideDashboardLoading() {
+  const el = document.getElementById('dashboardLoadingOverlay');
+  if (el) { el.classList.remove('visible'); }
+}
+
 // ─── Toast ────────────────────────────────────
 function showToast(message, type = 'info', duration = 3000) {
   const container = document.getElementById('toastContainer');
   const toast = document.createElement('div');
-  const icons = { success: '', error: '', info: 'ℹ' };
+  const icons = { success: '✓', error: '✕', info: 'ℹ' };
   toast.className = `toast ${type}`;
   toast.innerHTML = `<span>${icons[type] || 'ℹ'}</span><span>${message}</span>`;
   container.appendChild(toast);
@@ -178,7 +220,7 @@ function toggleMobileMenu() {
   } else {
     sidebar.classList.add('mobile-open');
     overlay.classList.add('show');
-    document.body.style.overflow = 'hidden'; // prevent background scroll
+    document.body.style.overflow = 'hidden';
   }
 }
 
@@ -195,31 +237,94 @@ function refreshCurrentPage() {
   showToast('Data refreshed', 'success');
 }
 
+// ─── Dashboard Filters ─────────────────────────
+function applyDashboardFilter() {
+  const start  = document.getElementById('filterDateStart').value;
+  const end    = document.getElementById('filterDateEnd').value;
+  const region = document.getElementById('filterRegion').value;
+  const market = document.getElementById('filterMarket').value;
+
+  state.dashboardFilters = {};
+  if (start)  state.dashboardFilters.date_start = start;
+  if (end)    state.dashboardFilters.date_end   = end;
+  if (region) state.dashboardFilters.region     = region;
+  if (market) state.dashboardFilters.market     = market;
+
+  // Show "Filter active" tag
+  const tag = document.getElementById('filterActiveTag');
+  const hasFilter = start || end || region || market;
+  if (tag) tag.style.display = hasFilter ? 'flex' : 'none';
+
+  // Reload all charts
+  reloadDashboardCharts();
+}
+
+function resetDashboardFilter() {
+  document.getElementById('filterDateStart').value = '2011-01-01';
+  document.getElementById('filterDateEnd').value   = '2014-12-31';
+  document.getElementById('filterRegion').value    = '';
+  document.getElementById('filterMarket').value    = '';
+  state.dashboardFilters = {};
+  const tag = document.getElementById('filterActiveTag');
+  if (tag) tag.style.display = 'none';
+  reloadDashboardCharts();
+}
+
+async function reloadDashboardCharts() {
+  // Destroy existing charts
+  Object.values(state.charts).forEach(c => c.destroy());
+  state.charts = {};
+  showDashboardLoading();
+  try {
+    await Promise.all([
+      loadKPI(),
+      loadChartRevenueYear(),
+      loadChartCategory(),
+      loadChartMarket(),
+      loadChartSubcat(),
+      loadChartShipMode(),
+      loadChartSegment(),
+      loadChartRegion(),
+      loadChartQuantityVsRevenue(),
+      loadChartAvgPrice(),
+    ]);
+  } finally {
+    hideDashboardLoading();
+  }
+}
+
 // ─── Dashboard Init ───────────────────────────
 async function initDashboard() {
-  await Promise.all([
-    loadKPI(),
-    loadChartRevenueYear(),
-    loadChartCategory(),
-    loadChartMarket(),
-    loadChartSubcat(),
-    loadChartShipMode(),
-    loadChartSegment(),
-    loadChartRegion(),
-  ]);
+  showDashboardLoading();
+  try {
+    await Promise.all([
+      loadKPI(),
+      loadChartRevenueYear(),
+      loadChartCategory(),
+      loadChartMarket(),
+      loadChartSubcat(),
+      loadChartShipMode(),
+      loadChartSegment(),
+      loadChartRegion(),
+      loadChartQuantityVsRevenue(),
+      loadChartAvgPrice(),
+    ]);
+  } finally {
+    hideDashboardLoading();
+  }
 }
 
 // ─── KPI ──────────────────────────────────────
 async function loadKPI() {
   try {
-    const d = await fetch(API_BASE_URL + '/api/kpi').then(r => r.json());
+    const d = await fetch(API_BASE_URL + '/api/kpi' + buildFilterQS()).then(r => r.json());
 
     document.getElementById('kpiRevenue').textContent   = fmt(d.total_revenue);
     document.getElementById('kpiProfit').textContent    = fmt(d.total_profit);
     document.getElementById('kpiOrders').textContent    = fmtNum(d.total_orders);
     document.getElementById('kpiCustomers').textContent = fmtNum(d.total_customers);
+    document.getElementById('kpiQuantity').textContent  = fmtNum(d.total_quantity);
     document.getElementById('kpiDiscount').textContent  = fmtPct(d.avg_discount_pct);
-    document.getElementById('kpiShipping').textContent  = fmt(d.total_shipping_cost);
 
     document.getElementById('gStatOrders').textContent    = fmtNum(d.total_orders);
     document.getElementById('gStatCustomers').textContent = fmtNum(d.total_customers);
@@ -245,7 +350,7 @@ function createChart(id, config) {
 // ─── Revenue by Year ──────────────────────────
 async function loadChartRevenueYear() {
   try {
-    const data = await fetch(API_BASE_URL + '/api/revenue-by-year').then(r => r.json());
+    const data = await fetch(API_BASE_URL + '/api/revenue-by-year' + buildFilterQS()).then(r => r.json());
     const labels = data.map(d => d.year);
     createChart('chartRevenueYear', {
       type: 'bar',
@@ -259,6 +364,7 @@ async function loadChartRevenueYear() {
             borderColor: COLORS.blue,
             borderWidth: 1,
             borderRadius: 6,
+            yAxisID: 'y',
           },
           {
             label: 'Profit',
@@ -267,6 +373,20 @@ async function loadChartRevenueYear() {
             borderColor: COLORS.green,
             borderWidth: 1,
             borderRadius: 6,
+            yAxisID: 'y',
+          },
+          {
+            label: 'Quantity',
+            data: data.map(d => d.quantity),
+            type: 'line',
+            borderColor: COLORS.orange,
+            backgroundColor: PALETTE_ALPHA(COLORS.orange, 0.15),
+            borderWidth: 2,
+            pointRadius: 4,
+            pointBackgroundColor: COLORS.orange,
+            tension: 0.3,
+            fill: false,
+            yAxisID: 'y2',
           },
         ],
       },
@@ -277,7 +397,10 @@ async function loadChartRevenueYear() {
           legend: { position: 'top', labels: { boxWidth: 12, padding: 16 } },
           tooltip: {
             callbacks: {
-              label: ctx => `${ctx.dataset.label}: $${(ctx.raw/1000).toFixed(1)}K`
+              label: ctx => {
+                if (ctx.dataset.label === 'Quantity') return `Quantity: ${fmtNum(ctx.raw)} units`;
+                return `${ctx.dataset.label}: $${(ctx.raw/1000).toFixed(1)}K`;
+              }
             }
           }
         },
@@ -285,8 +408,14 @@ async function loadChartRevenueYear() {
           x: { grid: { display: false } },
           y: {
             grid: { color: 'rgba(255,255,255,0.04)' },
-            ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'K' }
-          }
+            ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'K' },
+            position: 'left',
+          },
+          y2: {
+            position: 'right',
+            grid: { display: false },
+            ticks: { callback: v => fmtNum(v) + ' u' },
+          },
         }
       }
     });
@@ -296,7 +425,7 @@ async function loadChartRevenueYear() {
 // ─── Category Donut ───────────────────────────
 async function loadChartCategory() {
   try {
-    const data = await fetch(API_BASE_URL + '/api/sales-by-category').then(r => r.json());
+    const data = await fetch(API_BASE_URL + '/api/sales-by-category' + buildFilterQS()).then(r => r.json());
     const colors = [COLORS.blue, COLORS.purple, COLORS.orange];
     createChart('chartCategory', {
       type: 'doughnut',
@@ -318,7 +447,10 @@ async function loadChartCategory() {
           legend: { display: false },
           tooltip: {
             callbacks: {
-              label: ctx => `${ctx.label}: $${(ctx.raw/1e6).toFixed(2)}M`
+              label: ctx => {
+                const d = data[ctx.dataIndex];
+                return [`Revenue: ${fmt(ctx.raw)}`, `Qty: ${fmtNum(d.quantity)} units`, `Avg/unit: ${fmt(d.avg_unit_price)}`];
+              }
             }
           }
         }
@@ -342,7 +474,7 @@ async function loadChartCategory() {
 // ─── Market Horizontal Bar ────────────────────
 async function loadChartMarket() {
   try {
-    const data = await fetch(API_BASE_URL + '/api/profit-by-market').then(r => r.json());
+    const data = await fetch(API_BASE_URL + '/api/profit-by-market' + buildFilterQS()).then(r => r.json());
     createChart('chartMarket', {
       type: 'bar',
       data: {
@@ -368,7 +500,9 @@ async function loadChartMarket() {
         maintainAspectRatio: false,
         plugins: {
           legend: { position: 'top', labels: { boxWidth: 10, padding: 14 } },
-          tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmt(ctx.raw)}` } }
+          tooltip: { callbacks: {
+            label: ctx => `${ctx.dataset.label}: ${fmt(ctx.raw)}`
+          }}
         },
         scales: {
           x: {
@@ -382,44 +516,70 @@ async function loadChartMarket() {
   } catch(e) { console.error('Market chart error', e); }
 }
 
-// ─── Sub-Category Bar ─────────────────────────
+// ─── Sub-Category Bar (togglable) ─────────────
 async function loadChartSubcat() {
   try {
-    const data = await fetch(API_BASE_URL + '/api/top-subcategory').then(r => r.json());
-    createChart('chartSubcat', {
-      type: 'bar',
-      data: {
-        labels: data.map(d => d.sub_category),
-        datasets: [{
-          label: 'Sales',
-          data: data.map(d => d.sales),
-          backgroundColor: data.map((_, i) => PALETTE_ALPHA(PALETTE[i % PALETTE.length], 0.75)),
-          borderRadius: 5,
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { label: ctx => `Sales: ${fmt(ctx.raw)}` } }
-        },
-        scales: {
-          x: { grid: { display: false }, ticks: { maxRotation: 35 } },
-          y: {
-            grid: { color: 'rgba(255,255,255,0.04)' },
-            ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'K' }
+    const data = await fetch(API_BASE_URL + '/api/top-subcategory' + buildFilterQS()).then(r => r.json());
+    state.dashboardData.subcatRaw = data;
+    renderSubcatChart(state.dashboardData.subcatMetric);
+  } catch(e) { console.error('Subcategory chart error', e); }
+}
+
+function renderSubcatChart(metric) {
+  const data = state.dashboardData.subcatRaw;
+  if (!data.length) return;
+
+  const isQty = metric === 'quantity';
+  createChart('chartSubcat', {
+    type: 'bar',
+    data: {
+      labels: data.map(d => d.sub_category),
+      datasets: [{
+        label: isQty ? 'Quantity (units)' : 'Revenue',
+        data: data.map(d => isQty ? d.quantity : d.sales),
+        backgroundColor: data.map((_, i) => PALETTE_ALPHA(PALETTE[i % PALETTE.length], 0.75)),
+        borderRadius: 5,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: {
+          label: ctx => isQty
+            ? `Qty: ${fmtNum(ctx.raw)} units`
+            : `Revenue: ${fmt(ctx.raw)}`,
+          afterLabel: ctx => {
+            const d = data[ctx.dataIndex];
+            return isQty
+              ? `Revenue: ${fmt(d.sales)}`
+              : `Qty: ${fmtNum(d.quantity)} units | Avg/unit: ${fmt(d.avg_unit_price)}`;
           }
+        }}
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { maxRotation: 35 } },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { callback: v => isQty ? fmtNum(v) : '$' + (v/1000).toFixed(0) + 'K' }
         }
       }
-    });
-  } catch(e) { console.error('Subcategory chart error', e); }
+    }
+  });
+}
+
+function toggleSubcatMetric(metric, btn) {
+  state.dashboardData.subcatMetric = metric;
+  document.querySelectorAll('#subcatToggleRevenue, #subcatToggleQty').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderSubcatChart(metric);
 }
 
 // ─── Ship Mode Pie ────────────────────────────
 async function loadChartShipMode() {
   try {
-    const data = await fetch(API_BASE_URL + '/api/orders-by-shipmode').then(r => r.json());
+    const data = await fetch(API_BASE_URL + '/api/orders-by-shipmode' + buildFilterQS()).then(r => r.json());
     const colors = [COLORS.blue, COLORS.purple, COLORS.orange, COLORS.cyan];
     createChart('chartShipMode', {
       type: 'pie',
@@ -445,49 +605,150 @@ async function loadChartShipMode() {
   } catch(e) { console.error('ShipMode chart error', e); }
 }
 
-// ─── Segment Doughnut ─────────────────────────
+// ─── Segment Doughnut (togglable) ─────────────
 async function loadChartSegment() {
   try {
-    const data = await fetch(API_BASE_URL + '/api/segment-stats').then(r => r.json());
-    const colors = [COLORS.blue, COLORS.purple, COLORS.cyan];
-    createChart('chartSegment', {
-      type: 'doughnut',
-      data: {
-        labels: data.map(d => d.segment),
-        datasets: [{
-          data: data.map(d => d.sales),
-          backgroundColor: colors.map(c => PALETTE_ALPHA(c, 0.8)),
-          borderColor: colors,
-          borderWidth: 2,
-          hoverOffset: 6,
-          cutout: '60%',
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12, font: { size: 11 } } },
-          tooltip: { callbacks: { label: ctx => `${ctx.label}: ${fmt(ctx.raw)}` } }
-        }
-      }
-    });
+    const data = await fetch(API_BASE_URL + '/api/segment-stats' + buildFilterQS()).then(r => r.json());
+    state.dashboardData.segmentRaw = data;
+    renderSegmentChart(state.dashboardData.segmentMetric);
   } catch(e) { console.error('Segment chart error', e); }
 }
 
-// ─── Region Bar ───────────────────────────────
+function renderSegmentChart(metric) {
+  const data = state.dashboardData.segmentRaw;
+  if (!data.length) return;
+  const colors = [COLORS.blue, COLORS.purple, COLORS.cyan];
+  const isQty = metric === 'quantity';
+  createChart('chartSegment', {
+    type: 'doughnut',
+    data: {
+      labels: data.map(d => d.segment),
+      datasets: [{
+        data: data.map(d => isQty ? d.quantity : d.sales),
+        backgroundColor: colors.map(c => PALETTE_ALPHA(c, 0.8)),
+        borderColor: colors,
+        borderWidth: 2,
+        hoverOffset: 6,
+        cutout: '60%',
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12, font: { size: 11 } } },
+        tooltip: { callbacks: {
+          label: ctx => {
+            const d = data[ctx.dataIndex];
+            return isQty ? `${ctx.label}: ${fmtNum(ctx.raw)} units` : `${ctx.label}: ${fmt(ctx.raw)}`;
+          }
+        }}
+      }
+    }
+  });
+}
+
+function toggleSegmentMetric(metric, btn) {
+  state.dashboardData.segmentMetric = metric;
+  document.querySelectorAll('#segmentToggleRevenue, #segmentToggleQty').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderSegmentChart(metric);
+}
+
+// ─── Region Bar (togglable + drilldown) ───────
 async function loadChartRegion() {
   try {
-    const data = await fetch(API_BASE_URL + '/api/region-stats').then(r => r.json());
-    createChart('chartRegion', {
-      type: 'bar',
+    const data = await fetch(API_BASE_URL + '/api/region-stats' + buildFilterQS()).then(r => r.json());
+    state.dashboardData.regionRaw = data;
+    renderRegionChart(state.dashboardData.regionMetric);
+  } catch(e) { console.error('Region chart error', e); }
+}
+
+function renderRegionChart(metric) {
+  const data = state.dashboardData.regionRaw;
+  if (!data.length) return;
+  const isQty = metric === 'quantity';
+  const chart = createChart('chartRegion', {
+    type: 'bar',
+    data: {
+      labels: data.map(d => d.region),
+      datasets: [{
+        label: isQty ? 'Quantity (units)' : 'Revenue',
+        data: data.map(d => isQty ? d.quantity : d.sales),
+        backgroundColor: data.map((_, i) => PALETTE_ALPHA(PALETTE[i % PALETTE.length], 0.75)),
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: {
+          label: ctx => isQty ? `Qty: ${fmtNum(ctx.raw)} units` : `Revenue: ${fmt(ctx.raw)}`,
+          afterLabel: ctx => {
+            const d = data[ctx.dataIndex];
+            return [
+              `Profit: ${fmt(d.profit)}`,
+              `Qty: ${fmtNum(d.quantity)} units`,
+              `Avg/unit: ${fmt(d.avg_unit_price)}`,
+              '🔍 Click to explore this region',
+            ];
+          }
+        }}
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { maxRotation: 40, font: { size: 10 } } },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { callback: v => isQty ? fmtNum(v) : '$' + (v/1000).toFixed(0) + 'K' }
+        }
+      },
+      onClick: (evt, elements) => {
+        if (elements.length) {
+          const idx = elements[0].index;
+          openDrilldown(data[idx].region);
+        }
+      },
+      onHover: (evt, elements) => {
+        evt.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+      },
+    }
+  });
+}
+
+function toggleRegionMetric(metric, btn) {
+  state.dashboardData.regionMetric = metric;
+  document.querySelectorAll('#regionToggleRevenue, #regionToggleQty').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderRegionChart(metric);
+}
+
+// ─── Quantity vs Revenue Bubble Chart ─────────
+async function loadChartQuantityVsRevenue() {
+  try {
+    const data = await fetch(API_BASE_URL + '/api/quantity-stats' + buildFilterQS()).then(r => r.json());
+    state.dashboardData.quantityRaw = data;
+
+    const maxRev = Math.max(...data.map(d => d.revenue));
+    const bubbleData = data.map(d => ({
+      x: d.quantity,
+      y: d.revenue,
+      r: Math.max(5, Math.sqrt(d.avg_unit_price) * 1.2),
+      label: d.sub_category,
+      avg_unit_price: d.avg_unit_price,
+      profit: d.profit,
+    }));
+
+    createChart('chartQuantityVsRevenue', {
+      type: 'bubble',
       data: {
-        labels: data.map(d => d.region),
         datasets: [{
-          label: 'Sales',
-          data: data.map(d => d.sales),
-          backgroundColor: data.map((_, i) => PALETTE_ALPHA(PALETTE[i % PALETTE.length], 0.75)),
-          borderRadius: 4,
+          label: 'Sub-Category',
+          data: bubbleData,
+          backgroundColor: data.map((_, i) => PALETTE_ALPHA(PALETTE[i % PALETTE.length], 0.6)),
+          borderColor: data.map((_, i) => PALETTE[i % PALETTE.length]),
+          borderWidth: 1.5,
         }]
       },
       options: {
@@ -495,18 +756,244 @@ async function loadChartRegion() {
         maintainAspectRatio: false,
         plugins: {
           legend: { display: false },
-          tooltip: { callbacks: { label: ctx => `Sales: ${fmt(ctx.raw)}` } }
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const d = ctx.raw;
+                return [
+                  `📦 ${d.label}`,
+                  `Revenue: ${fmt(d.y)}`,
+                  `Quantity: ${fmtNum(d.x)} units`,
+                  `Avg Unit Price: ${fmt(d.avg_unit_price)}`,
+                  `Profit: ${fmt(d.profit)}`,
+                ];
+              }
+            }
+          }
         },
         scales: {
-          x: { grid: { display: false }, ticks: { maxRotation: 40, font: { size: 10 } } },
-          y: {
+          x: {
+            title: { display: true, text: 'Total Quantity (units)', color: '#666' },
             grid: { color: 'rgba(255,255,255,0.04)' },
-            ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'K' }
+            ticks: { callback: v => fmtNum(v) },
+          },
+          y: {
+            title: { display: true, text: 'Total Revenue ($)', color: '#666' },
+            grid: { color: 'rgba(255,255,255,0.04)' },
+            ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'K' },
           }
         }
       }
     });
-  } catch(e) { console.error('Region chart error', e); }
+
+    // Add sub-category labels as plugins
+    setTimeout(() => {
+      const chart = state.charts['chartQuantityVsRevenue'];
+      if (!chart) return;
+      Chart.register({
+        id: 'bubbleLabels',
+        afterDatasetsDraw(chart) {
+          const { ctx, data } = chart;
+          ctx.save();
+          data.datasets[0].data.forEach((pt, i) => {
+            const meta = chart.getDatasetMeta(0);
+            const el = meta.data[i];
+            if (!el) return;
+            ctx.fillStyle = '#aaa';
+            ctx.font = '9px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText(pt.label, el.x, el.y - el.options.radius - 4);
+          });
+          ctx.restore();
+        }
+      });
+    }, 200);
+  } catch(e) { console.error('Qty vs Revenue chart error', e); }
+}
+
+// ─── Avg Unit Price Bar ───────────────────────
+async function loadChartAvgPrice() {
+  try {
+    const data = await fetch(API_BASE_URL + '/api/quantity-stats' + buildFilterQS()).then(r => r.json());
+    // Sort by avg_unit_price descending
+    const sorted = [...data].sort((a, b) => b.avg_unit_price - a.avg_unit_price).slice(0, 8);
+    createChart('chartAvgPrice', {
+      type: 'bar',
+      data: {
+        labels: sorted.map(d => d.sub_category),
+        datasets: [{
+          label: 'Avg Unit Price ($)',
+          data: sorted.map(d => d.avg_unit_price),
+          backgroundColor: sorted.map((_, i) => PALETTE_ALPHA(PALETTE[i % PALETTE.length], 0.75)),
+          borderRadius: 5,
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: {
+            label: ctx => `Avg/unit: ${fmt(ctx.raw)}`,
+            afterLabel: ctx => {
+              const d = sorted[ctx.dataIndex];
+              return [`Revenue: ${fmt(d.revenue)}`, `Qty: ${fmtNum(d.quantity)} units`];
+            }
+          }}
+        },
+        scales: {
+          x: {
+            grid: { color: 'rgba(255,255,255,0.04)' },
+            ticks: { callback: v => '$' + v.toFixed(0) }
+          },
+          y: { grid: { display: false }, ticks: { font: { size: 10 } } }
+        }
+      }
+    });
+  } catch(e) { console.error('Avg price chart error', e); }
+}
+
+// ─── Region Drill-Down ────────────────────────
+async function openDrilldown(region) {
+  const modal    = document.getElementById('drilldownModal');
+  const backdrop = document.getElementById('drilldownBackdrop');
+  document.getElementById('drilldownTitle').textContent = `🔍 ${region} — Region Explorer`;
+  document.getElementById('drilldownSub').textContent = 'Deep-dive: why does this region perform this way?';
+
+  modal.classList.add('open');
+  backdrop.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  try {
+    const d = await fetch(API_BASE_URL + `/api/region-drilldown?region=${encodeURIComponent(region)}`).then(r => r.json());
+    renderDrillTrend(d.trend);
+    renderDrillSubcat(d.top_subcategories);
+    renderDrillSegments(d.segments);
+    renderDrillCountries(d.top_countries);
+  } catch(e) {
+    showToast('Failed to load region data', 'error');
+  }
+}
+
+function closeDrilldown() {
+  document.getElementById('drilldownModal').classList.remove('open');
+  document.getElementById('drilldownBackdrop').classList.remove('open');
+  document.body.style.overflow = '';
+  destroyChart('drillTrend');
+  destroyChart('drillCountries');
+}
+
+function renderDrillTrend(trend) {
+  destroyChart('drillTrend');
+  createChart('drillTrend', {
+    type: 'line',
+    data: {
+      labels: trend.map(d => d.year),
+      datasets: [
+        {
+          label: 'Revenue',
+          data: trend.map(d => d.sales),
+          borderColor: COLORS.blue,
+          backgroundColor: PALETTE_ALPHA(COLORS.blue, 0.15),
+          fill: true, tension: 0.3, borderWidth: 2, pointRadius: 4,
+        },
+        {
+          label: 'Profit',
+          data: trend.map(d => d.profit),
+          borderColor: COLORS.green,
+          backgroundColor: PALETTE_ALPHA(COLORS.green, 0.1),
+          fill: true, tension: 0.3, borderWidth: 2, pointRadius: 4,
+        },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { boxWidth: 10, padding: 12 } },
+        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmt(ctx.raw)}` } }
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { callback: v => fmt(v) } }
+      }
+    }
+  });
+}
+
+function renderDrillSubcat(rows) {
+  const tbody = document.getElementById('drillSubcatBody');
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td><strong>${esc(r.sub_category)}</strong></td>
+      <td><span class="badge badge-info">${esc(r.category)}</span></td>
+      <td>${fmt(r.sales)}</td>
+      <td>${fmtNum(r.quantity)}</td>
+      <td><span class="badge badge-warning">${fmt(r.avg_unit_price)}</span></td>
+      <td>${profitBadge(r.profit)}</td>
+    </tr>
+  `).join('');
+}
+
+function renderDrillSegments(segments) {
+  const container = document.getElementById('drillSegments');
+  const total = segments.reduce((s, r) => s + r.sales, 0);
+  container.innerHTML = segments.map((seg, i) => {
+    const pct = total > 0 ? ((seg.sales / total) * 100).toFixed(1) : 0;
+    return `
+      <div class="drill-segment-row">
+        <div class="drill-seg-label">
+          <span class="stat-row-dot" style="background:${PALETTE[i % PALETTE.length]};"></span>
+          <span>${segmentBadge(seg.segment)}</span>
+        </div>
+        <div class="drill-seg-bars">
+          <div class="drill-seg-bar-wrap">
+            <div class="drill-seg-bar" style="width:${pct}%;background:${PALETTE[i % PALETTE.length]};"></div>
+          </div>
+          <span class="drill-seg-pct">${pct}%</span>
+        </div>
+        <div class="drill-seg-stats">
+          <span>${fmt(seg.sales)}</span>
+          <span style="color:var(--text-muted);">${fmtNum(seg.quantity)} units</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderDrillCountries(countries) {
+  destroyChart('drillCountries');
+  createChart('drillCountries', {
+    type: 'bar',
+    data: {
+      labels: countries.map(d => d.country),
+      datasets: [
+        {
+          label: 'Revenue',
+          data: countries.map(d => d.sales),
+          backgroundColor: PALETTE_ALPHA(COLORS.blue, 0.7),
+          borderRadius: 4,
+        },
+        {
+          label: 'Profit',
+          data: countries.map(d => d.profit),
+          backgroundColor: PALETTE_ALPHA(COLORS.green, 0.7),
+          borderRadius: 4,
+        },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { boxWidth: 10, padding: 12 } },
+        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmt(ctx.raw)}` } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { maxRotation: 30, font: { size: 10 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { callback: v => fmt(v) } }
+      }
+    }
+  });
 }
 
 // ─── Table Loader ─────────────────────────────
@@ -697,7 +1184,6 @@ window.addEventListener('pagesLoaded', () => {
 
 
 // ─── Mobile Sidebar Toggle ─────────────────────
-// Auto-reset sidebar state on window resize
 window.addEventListener('resize', () => {
   if (window.innerWidth > 900) {
     const sidebar = document.getElementById('sidebar');
@@ -709,9 +1195,16 @@ window.addEventListener('resize', () => {
 });
 
 // ─── Expose ke window (untuk inline onclick HTML) ────
-window.navigateTo        = navigateTo;
-window.toggleSidebar     = toggleSidebar;
-window.toggleMobileMenu  = toggleMobileMenu;
+window.navigateTo         = navigateTo;
+window.toggleSidebar      = toggleSidebar;
+window.toggleMobileMenu   = toggleMobileMenu;
 window.refreshCurrentPage = refreshCurrentPage;
-window.exportTable       = exportTable;
-window.showToast         = showToast;
+window.exportTable        = exportTable;
+window.showToast          = showToast;
+window.applyDashboardFilter  = applyDashboardFilter;
+window.resetDashboardFilter  = resetDashboardFilter;
+window.toggleSubcatMetric    = toggleSubcatMetric;
+window.toggleRegionMetric    = toggleRegionMetric;
+window.toggleSegmentMetric   = toggleSegmentMetric;
+window.openDrilldown         = openDrilldown;
+window.closeDrilldown        = closeDrilldown;

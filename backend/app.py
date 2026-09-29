@@ -771,3 +771,19 @@ def predict_combined():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
+
+@app.route("/api/dashboard-summary", methods=["GET"])
+def dashboard_summary():
+    # Combine all dashboard queries into a single response to avoid WSGI concurrent limits
+    return jsonify({
+        "kpi": kpi().get_json(),
+        "revenue_by_year": revenue_by_year().get_json(),
+        "sales_by_category": sales_by_category().get_json(),
+        "profit_by_market": profit_by_market().get_json(),
+        "top_subcategory": top_subcategory().get_json(),
+        "orders_by_shipmode": orders_by_shipmode().get_json(),
+        "segment_stats": segment_stats().get_json(),
+        "region_stats": region_stats().get_json(),
+        "quantity_stats": quantity_stats().get_json()
+    })

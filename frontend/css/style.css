@@ -2027,3 +2027,5 @@ input, select, textarea { font-family: inherit; }
 @media (max-width: 1100px) {
   .ai-unified-layout { grid-template-columns: 1fr; }
 }
+
+.dashboard-loading-overlay { position: fixed !important; }

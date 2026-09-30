@@ -155,7 +155,7 @@ async function predictCombined() {
 
   try {
     await ensureServerAwake('unifiedPredictBtn', 'Membangunkan server AI...', 'Menganalisis...');
-    setBtnText('unifiedPredictBtn', '<span class="loading-spinner"></span> Memproses klasifikasi &amp; regresi...');
+    setBtnText('unifiedPredictBtn', '<span class="loading-spinner"></span> Menghitung estimasi &amp; status profit...');
 
     // Try combined endpoint first, fall back to concurrent separate calls
     var json;
@@ -173,45 +173,43 @@ async function predictCombined() {
 
       showClfResult(json.classification);
       showRegResult(json.regression, data);
-      var clfLabel = json.classification.prediction;
       var profitEst = json.regression.estimated_profit;
       var netStatus = json.regression.net_status || (profitEst > 0 ? 'PROFIT' : profitEst === 0 ? 'BREAK EVEN' : 'LOSS');
       showToast(
-        'Klasifikasi: ' + clfLabel + ' | Estimasi Profit: $' + profitEst.toFixed(2) + ' (' + netStatus + ')',
+        'Estimasi Profit: $' + profitEst.toFixed(2) + ' (' + netStatus + ')',
         json.classification.is_profit ? 'success' : 'error',
         4000
       );
 
     } catch (combinedErr) {
-      // Fallback: concurrent separate calls
-      console.warn('Combined endpoint failed, falling back to concurrent calls:', combinedErr.message);
-      setBtnText('unifiedPredictBtn', '<span class="loading-spinner"></span> Menjalankan prediksi paralel...');
+      // Fallback: call regression endpoint
+      console.warn('Combined endpoint failed, falling back to regression call:', combinedErr.message);
+      setBtnText('unifiedPredictBtn', '<span class="loading-spinner"></span> Menghitung via model regresi...');
 
-      var [clfRes, regRes] = await Promise.all([
-        fetchWithTimeout(API_BASE_URL + '/api/predict/classify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        }),
-        fetchWithTimeout(API_BASE_URL + '/api/predict/regress', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        }),
-      ]);
+      var regRes = await fetchWithTimeout(API_BASE_URL + '/api/predict/regress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
 
-      var clfJson = await clfRes.json();
       var regJson = await regRes.json();
-
-      if (!clfRes.ok || clfJson.status !== 'success') throw new Error(parseBackendError(clfJson));
       if (!regRes.ok || regJson.status !== 'success') throw new Error(parseBackendError(regJson));
 
-      showClfResult(clfJson);
+      var isProfitable = regJson.is_profitable;
+      var simulatedClf = {
+        prediction: regJson.net_status || (isProfitable ? 'PROFIT' : 'LOSS'),
+        is_profit: isProfitable,
+        confidence: 100.0,
+        rule_derived: true,
+        profit_probability: isProfitable ? 100.0 : 0.0,
+        loss_probability: isProfitable ? 0.0 : 100.0
+      };
+
+      showClfResult(simulatedClf);
       showRegResult(regJson, data);
-      var netStatus2 = regJson.net_status || (regJson.estimated_profit > 0 ? 'PROFIT' : regJson.estimated_profit === 0 ? 'BREAK EVEN' : 'LOSS');
       showToast(
-        'Klasifikasi: ' + clfJson.prediction + ' | Profit: $' + regJson.estimated_profit.toFixed(2),
-        clfJson.is_profit ? 'success' : 'error',
+        'Estimasi Profit: $' + regJson.estimated_profit.toFixed(2) + ' (' + regJson.net_status + ')',
+        isProfitable ? 'success' : 'error',
         4000
       );
     }
@@ -223,11 +221,11 @@ async function predictCombined() {
     showToast('Gagal melakukan prediksi: ' + msg, 'error');
     console.error(e);
   } finally {
-    setBtnLoading('unifiedPredictBtn', false, '<i class="fa-solid fa-bolt"></i> Prediksi Sekarang (Klasifikasi + Estimasi)');
+    setBtnLoading('unifiedPredictBtn', false, '<i class="fa-solid fa-bolt"></i> Hitung Estimasi &amp; Kelayakan Profit');
   }
 }
 
-// === Show Classification Result ===
+// === Show Classification Result (Derived Deterministically) ===
 function showClfResult(json) {
   var result = document.getElementById('clfResult');
   var icon = document.getElementById('clfResultIcon');
@@ -242,18 +240,20 @@ function showClfResult(json) {
   result.style.opacity = '1';
 
   icon.innerHTML = json.is_profit
-    ? '<i class="fa-solid fa-dollar-sign"></i>'
-    : '<i class="fa-solid fa-triangle-exclamation"></i>';
+    ? '<i class="fa-solid fa-circle-check"></i>'
+    : '<i class="fa-solid fa-circle-xmark"></i>';
   value.textContent = json.prediction;
   value.className = 'result-value ' + (json.is_profit ? 'profit-val' : 'loss-val');
-  conf.textContent = 'Keyakinan model: ' + json.confidence + '%';
+  conf.textContent = json.rule_derived
+    ? (json.is_profit ? 'Ambang terpenuhi: Profit > $0' : 'Ambang tidak terpenuhi: Profit ≤ $0')
+    : 'Keyakinan: ' + json.confidence + '%';
 
-  profitPct.textContent = json.profit_probability + '%';
-  lossPct.textContent = json.loss_probability + '%';
+  if (profitPct) profitPct.textContent = json.is_profit ? '100%' : '0%';
+  if (lossPct) lossPct.textContent = json.is_profit ? '0%' : '100%';
 
   setTimeout(function () {
-    profitBar.style.width = json.profit_probability + '%';
-    lossBar.style.width = json.loss_probability + '%';
+    if (profitBar) profitBar.style.width = json.is_profit ? '100%' : '0%';
+    if (lossBar) lossBar.style.width = json.is_profit ? '0%' : '100%';
   }, 100);
 }
 

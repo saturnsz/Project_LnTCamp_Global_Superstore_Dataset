@@ -1653,6 +1653,22 @@ input, select, textarea { font-family: inherit; }
   font-weight: 500;
 }
 
+/* Fix for date inputs to show calendar properly in desktop view */
+input[type="date"].filter-control {
+  appearance: auto;
+  -webkit-appearance: auto;
+  cursor: pointer;
+  color-scheme: dark;
+}
+input[type="date"].filter-control::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+input[type="date"].filter-control::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
 /* ─── Filter Bar ─────────────────────────────── */
 .filter-bar {
   background: var(--bg-card);

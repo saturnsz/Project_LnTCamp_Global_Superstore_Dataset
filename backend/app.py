@@ -735,13 +735,42 @@ def locations():
 
 # ─── AI Prediction Endpoints ──────────────────────────────────────────────────
 
+@app.route("/api/predict/classify", methods=["POST"])
+def predict_classify():
+    ensure_models_loaded()
+    if MODEL_ERROR:
+        return jsonify({"detail": f"ML models tidak dapat dimuat: {MODEL_ERROR}"}), 503
+    try:
+        payload = PredictInput(**request.json)
+        
+        df = build_input_df(payload, cols_clf)
+
+        df_scaled    = df.copy()
+        numeric_cols = _get_numeric_cols(scaler_clf)
+        df_scaled[numeric_cols] = scaler_clf.transform(df[numeric_cols])
+
+        pred  = model_clf.predict(df_scaled)[0]
+        proba = model_clf.predict_proba(df_scaled)[0]
+
+        label        = "PROFIT" if pred == 1 else "LOSS"
+        profit_prob  = round(float(proba[1]) * 100, 1) if len(proba) > 1 else round(float(max(proba)) * 100, 1)
+        confidence   = round(float(max(proba)) * 100, 1)
+
+        return jsonify({
+            "status":             "success",
+            "prediction":         label,
+            "is_profit":          bool(pred == 1),
+            "confidence":         confidence,
+            "profit_probability": profit_prob,
+            "loss_probability":   round(100.0 - profit_prob, 1),
+        })
+    except ValidationError as e:
+        return jsonify(e.errors()), 400
+    except Exception as exc:
+        return jsonify({"detail": str(exc)}), 500
+
 @app.route("/api/predict/regress", methods=["POST"])
 def predict_regress():
-    """
-    Financial Profit Estimator (Regression - Product-Line Level).
-    Predicts exact dollar profit/loss amount using XGBoost Regressor.
-    Profit/Loss classification is derived deterministically from the predicted value.
-    """
     ensure_models_loaded()
     if MODEL_ERROR:
         return jsonify({"detail": f"ML models tidak dapat dimuat: {MODEL_ERROR}"}), 503
@@ -749,11 +778,10 @@ def predict_regress():
         payload = PredictInput(**request.json)
 
         df = build_input_df(payload, cols_reg)
-        df_scaled = df.copy()
+
+        df_scaled    = df.copy()
         numeric_cols = _get_numeric_cols(scaler_reg)
-        valid_num = [c for c in numeric_cols if c in df_scaled.columns]
-        if valid_num:
-            df_scaled[valid_num] = scaler_reg.transform(df[valid_num])
+        df_scaled[numeric_cols] = scaler_reg.transform(df[numeric_cols])
 
         profit_est = float(model_reg.predict(df_scaled)[0])
 
@@ -764,17 +792,12 @@ def predict_regress():
         else:
             net_status = "LOSS"
 
-        margin_pct = round((profit_est / payload.sales) * 100, 2) if payload.sales > 0 else 0.0
-
         return jsonify({
             "status":           "success",
             "estimated_profit": round(profit_est, 2),
             "is_profitable":    profit_est > 0,
             "is_break_even":    profit_est == 0,
             "net_status":       net_status,
-            "margin_pct":       margin_pct,
-            "rule_derived":     True,
-            "explanation":      "Status net profit diklasifikasikan secara deterministik dari estimasi regresi (> 0: PROFIT, <= 0: LOSS)."
         })
     except ValidationError as e:
         return jsonify(e.errors()), 400
@@ -782,83 +805,50 @@ def predict_regress():
         return jsonify({"detail": str(exc)}), 500
 
 
-@app.route("/api/predict/classify", methods=["POST"])
-def predict_classify():
-    """
-    Profit/Loss Status Endpoint:
-    Instead of running a redundant ML classifier (Task A), this uses the
-    Financial Regression model (Task B) and applies deterministic business logic.
-    """
-    reg_response = predict_regress()
-    if isinstance(reg_response, tuple) and reg_response[1] != 200:
-        return reg_response
-    data = reg_response.get_json()
-    is_profit = data.get("is_profitable", False)
-    net_status = data.get("net_status", "LOSS")
-    return jsonify({
-        "status":             "success",
-        "prediction":         net_status,
-        "is_profit":          is_profit,
-        "confidence":         100.0,
-        "profit_probability": 100.0 if is_profit else 0.0,
-        "loss_probability":   0.0 if is_profit else 100.0,
-        "rule_derived":       True,
-        "explanation":        "Status diklasifikasikan langsung dari estimasi profit nominal regresi tanpa model redundan."
-    })
-
-
 @app.route("/api/predict/combined", methods=["POST"])
 def predict_combined():
-    """
-    Unified Prediction:
-    Executes Profit Regression and deterministically returns both
-    exact dollar amount and rule-based status classification in one call.
-    """
+    """Run both classification and regression in one request."""
     ensure_models_loaded()
     if MODEL_ERROR:
         return jsonify({"detail": f"ML models tidak dapat dimuat: {MODEL_ERROR}"}), 503
     try:
         payload = PredictInput(**request.json)
 
-        # ── Regression Engine (Single Source of Truth) ──
+        # ── Classification ──
+        df_clf = build_input_df(payload, cols_clf)
+        df_clf_scaled = df_clf.copy()
+        numeric_cols_clf = _get_numeric_cols(scaler_clf)
+        df_clf_scaled[numeric_cols_clf] = scaler_clf.transform(df_clf[numeric_cols_clf])
+        pred  = model_clf.predict(df_clf_scaled)[0]
+        proba = model_clf.predict_proba(df_clf_scaled)[0]
+        label        = "PROFIT" if pred == 1 else "LOSS"
+        profit_prob  = round(float(proba[1]) * 100, 1) if len(proba) > 1 else round(float(max(proba)) * 100, 1)
+        confidence   = round(float(max(proba)) * 100, 1)
+        clf_result = {
+            "prediction":         label,
+            "is_profit":          bool(pred == 1),
+            "confidence":         confidence,
+            "profit_probability": profit_prob,
+            "loss_probability":   round(100.0 - profit_prob, 1),
+        }
+
+        # ── Regression ──
         df_reg = build_input_df(payload, cols_reg)
         df_reg_scaled = df_reg.copy()
         numeric_cols_reg = _get_numeric_cols(scaler_reg)
-        valid_num = [c for c in numeric_cols_reg if c in df_reg_scaled.columns]
-        if valid_num:
-            df_reg_scaled[valid_num] = scaler_reg.transform(df_reg[valid_num])
-
+        df_reg_scaled[numeric_cols_reg] = scaler_reg.transform(df_reg[numeric_cols_reg])
         profit_est = float(model_reg.predict(df_reg_scaled)[0])
-
         if profit_est > 0:
             net_status = "PROFIT"
-            is_profitable = True
         elif profit_est == 0:
             net_status = "BREAK EVEN"
-            is_profitable = True
         else:
             net_status = "LOSS"
-            is_profitable = False
-
-        margin_pct = round((profit_est / payload.sales) * 100, 2) if payload.sales > 0 else 0.0
-
         reg_result = {
             "estimated_profit": round(profit_est, 2),
-            "is_profitable":    is_profitable,
+            "is_profitable":    profit_est > 0,
             "is_break_even":    profit_est == 0,
             "net_status":       net_status,
-            "margin_pct":       margin_pct,
-        }
-
-        # Deterministic Classification (No redundant ML model)
-        clf_result = {
-            "prediction":         net_status,
-            "is_profit":          is_profitable,
-            "confidence":         100.0,
-            "profit_probability": 100.0 if is_profitable else 0.0,
-            "loss_probability":   0.0 if is_profitable else 100.0,
-            "rule_derived":       True,
-            "explanation":        "Status diklasifikasikan langsung dari estimasi profit nominal regresi (> 0: PROFIT, <= 0: LOSS)."
         }
 
         return jsonify({

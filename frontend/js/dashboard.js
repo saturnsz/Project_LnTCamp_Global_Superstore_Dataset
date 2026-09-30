@@ -9,8 +9,8 @@ const state = {
   currentPage: 'dashboard',
   sidebarCollapsed: false,
   pages: {
-    orders:    { page: 1, limit: 20, total: 0, q: '', data: [], timer: null },
-    products:  { page: 1, limit: 20, total: 0, q: '', data: [], timer: null },
+    orders: { page: 1, limit: 20, total: 0, q: '', data: [], timer: null },
+    products: { page: 1, limit: 20, total: 0, q: '', data: [], timer: null },
     customers: { page: 1, limit: 20, total: 0, q: '', data: [], timer: null },
     locations: { page: 1, limit: 20, total: 0, q: '', data: [], timer: null },
   },
@@ -36,22 +36,22 @@ Chart.defaults.font.size = 12;
 
 // ─── Color Palettes ───────────────────────────
 const COLORS = { blue: '#4f8ef7', purple: '#8b5cf6', green: '#22c55e', red: '#ef4444', orange: '#f59e0b', cyan: '#06b6d4', pink: '#ec4899' };
-const PALETTE = ['#4f8ef7','#8b5cf6','#22c55e','#f59e0b','#06b6d4','#ef4444','#ec4899','#a78bfa','#34d399','#fbbf24','#60a5fa','#f87171'];
-const PALETTE_ALPHA = (color, a=0.7) => color + Math.round(a*255).toString(16).padStart(2,'0');
+const PALETTE = ['#4f8ef7', '#8b5cf6', '#22c55e', '#f59e0b', '#06b6d4', '#ef4444', '#ec4899', '#a78bfa', '#34d399', '#fbbf24', '#60a5fa', '#f87171'];
+const PALETTE_ALPHA = (color, a = 0.7) => color + Math.round(a * 255).toString(16).padStart(2, '0');
 
 // ─── Helpers ──────────────────────────────────
-function fmt(n, prefix='$') {
+function fmt(n, prefix = '$') {
   if (n == null || isNaN(n)) return '—';
   const abs = Math.abs(n);
-  if (abs >= 1e6) return (n < 0 ? '-' : '') + prefix + (abs/1e6).toFixed(2) + 'M';
-  if (abs >= 1e3) return (n < 0 ? '-' : '') + prefix + (abs/1e3).toFixed(1) + 'K';
+  if (abs >= 1e6) return (n < 0 ? '-' : '') + prefix + (abs / 1e6).toFixed(2) + 'M';
+  if (abs >= 1e3) return (n < 0 ? '-' : '') + prefix + (abs / 1e3).toFixed(1) + 'K';
   return (n < 0 ? '-' : '') + prefix + abs.toFixed(2);
 }
 
 function fmtNum(n) { return n == null ? '—' : Number(n).toLocaleString(); }
 function fmtPct(n) { return n != null ? n.toFixed(1) + '%' : '—'; }
 function fmtDate(d) { return !d ? '—' : d.substring(0, 10); }
-function esc(s) { return !s ? '—' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function esc(s) { return !s ? '—' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
 function profitBadge(profit) {
   if (profit == null) return '<span class="badge badge-muted">—</span>';
@@ -82,10 +82,10 @@ function buildFilterQS(extra) {
   const f = state.dashboardFilters;
   const params = new URLSearchParams();
   if (f.date_start) params.set('date_start', f.date_start);
-  if (f.date_end)   params.set('date_end',   f.date_end);
-  if (f.region)     params.set('region',     f.region);
-  if (f.market)     params.set('market',     f.market);
-  if (extra)        Object.entries(extra).forEach(([k,v]) => params.set(k, v));
+  if (f.date_end) params.set('date_end', f.date_end);
+  if (f.region) params.set('region', f.region);
+  if (f.market) params.set('market', f.market);
+  if (extra) Object.entries(extra).forEach(([k, v]) => params.set(k, v));
   const qs = params.toString();
   return qs ? '?' + qs : '';
 }
@@ -132,18 +132,18 @@ function navigateTo(pageName) {
 
   const titles = {
     dashboard: ['Dashboard', 'Global Superstore Analytics'],
-    orders:    ['Orders', 'Transaction management'],
-    products:  ['Products', 'Product catalog'],
+    orders: ['Orders', 'Transaction management'],
+    products: ['Products', 'Product catalog'],
     customers: ['Customers', 'Customer directory'],
     locations: ['Locations', 'Geographic distribution'],
-    ai:        ['AI Predictor', 'XGBoost Transaction Intelligence'],
+    ai: ['AI Predictor', 'XGBoost Transaction Intelligence'],
   };
 
   const [title, subtitle] = titles[pageName] || ['Page', ''];
   document.getElementById('topbarTitle').textContent = title;
   document.getElementById('topbarSubtitle').textContent = subtitle;
 
-  const tablePages = ['orders','products','customers','locations'];
+  const tablePages = ['orders', 'products', 'customers', 'locations'];
   document.getElementById('topSearchBar').style.display = tablePages.includes(pageName) ? 'flex' : 'none';
 
   if (!state.initialized[pageName]) {
@@ -151,7 +151,7 @@ function navigateTo(pageName) {
     if (pageName === 'dashboard') initDashboard();
     else if (tablePages.includes(pageName)) loadTablePage(pageName, 1);
   }
-  
+
   if (window.innerWidth <= 900) {
     document.getElementById('sidebar').classList.remove('mobile-open');
     document.getElementById('mobileOverlay').classList.remove('show');
@@ -196,9 +196,9 @@ function refreshCurrentPage() {
 function applyDashboardFilter() {
   state.dashboardFilters = {
     date_start: document.getElementById('filterDateStart').value,
-    date_end:   document.getElementById('filterDateEnd').value,
-    region:     document.getElementById('filterRegion').value,
-    market:     document.getElementById('filterMarket').value,
+    date_end: document.getElementById('filterDateEnd').value,
+    region: document.getElementById('filterRegion').value,
+    market: document.getElementById('filterMarket').value,
   };
   const hasFilter = Object.values(state.dashboardFilters).some(v => v);
   document.getElementById('filterActiveTag').style.display = hasFilter ? 'flex' : 'none';
@@ -207,9 +207,9 @@ function applyDashboardFilter() {
 
 function resetDashboardFilter() {
   document.getElementById('filterDateStart').value = '2011-01-01';
-  document.getElementById('filterDateEnd').value   = '2014-12-31';
-  document.getElementById('filterRegion').value    = '';
-  document.getElementById('filterMarket').value    = '';
+  document.getElementById('filterDateEnd').value = '2014-12-31';
+  document.getElementById('filterRegion').value = '';
+  document.getElementById('filterMarket').value = '';
   state.dashboardFilters = {};
   document.getElementById('filterActiveTag').style.display = 'none';
   reloadDashboardCharts();
@@ -236,28 +236,28 @@ async function initDashboard() {
     const res = await fetch(url);
     if (!res.ok) throw new Error('API Error');
     const data = await res.json();
-    
+
     renderKPI(data.kpi);
     renderChartRevenueYear(data.revenue_by_year);
     renderChartCategory(data.sales_by_category);
     renderChartMarket(data.profit_by_market);
-    
+
     state.dashboardData.subcatRaw = data.top_subcategory;
     renderSubcatChart(state.dashboardData.subcatMetric);
-    
+
     renderChartShipMode(data.orders_by_shipmode);
-    
+
     state.dashboardData.segmentRaw = data.segment_stats;
     renderSegmentChart(state.dashboardData.segmentMetric);
-    
+
     state.dashboardData.regionRaw = data.region_stats;
     renderRegionChart(state.dashboardData.regionMetric);
-    
+
     state.dashboardData.quantityRaw = data.quantity_stats;
     renderChartQuantityVsRevenue();
     renderChartAvgPrice();
-    
-  } catch(e) {
+
+  } catch (e) {
     console.error('Dashboard load error:', e);
     showToast('Dashboard data load failed. Please wait for server wakeup.', 'error');
   } finally {
@@ -273,15 +273,15 @@ function reloadDashboardCharts() {
 
 // ─── Render Dashboard Components ──────────────
 function renderKPI(d) {
-  document.getElementById('kpiRevenue').textContent   = fmt(d.total_revenue);
-  document.getElementById('kpiProfit').textContent    = fmt(d.total_profit);
-  document.getElementById('kpiOrders').textContent    = fmtNum(d.total_orders);
+  document.getElementById('kpiRevenue').textContent = fmt(d.total_revenue);
+  document.getElementById('kpiProfit').textContent = fmt(d.total_profit);
+  document.getElementById('kpiOrders').textContent = fmtNum(d.total_orders);
   document.getElementById('kpiCustomers').textContent = fmtNum(d.total_customers);
-  document.getElementById('kpiQuantity').textContent  = fmtNum(d.total_quantity);
-  document.getElementById('kpiDiscount').textContent  = fmtPct(d.avg_discount_pct);
-  document.getElementById('gStatOrders').textContent    = fmtNum(d.total_orders);
+  document.getElementById('kpiQuantity').textContent = fmtNum(d.total_quantity);
+  document.getElementById('kpiDiscount').textContent = fmtPct(d.avg_discount_pct);
+  document.getElementById('gStatOrders').textContent = fmtNum(d.total_orders);
   document.getElementById('gStatCustomers').textContent = fmtNum(d.total_customers);
-  document.getElementById('gStatItems').textContent     = fmtNum(d.total_items);
+  document.getElementById('gStatItems').textContent = fmtNum(d.total_items);
 }
 
 function renderChartRevenueYear(data) {
@@ -297,10 +297,10 @@ function renderChartRevenueYear(data) {
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { tooltip: { callbacks: { label: ctx => ctx.dataset.label === 'Quantity' ? `Quantity: ${fmtNum(ctx.raw)} units` : `${ctx.dataset.label}: $${(ctx.raw/1000).toFixed(1)}K` } } },
+      plugins: { tooltip: { callbacks: { label: ctx => ctx.dataset.label === 'Quantity' ? `Quantity: ${fmtNum(ctx.raw)} units` : `${ctx.dataset.label}: $${(ctx.raw / 1000).toFixed(1)}K` } } },
       scales: {
         x: { grid: { display: false } },
-        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'K' }, position: 'left' },
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { callback: v => '$' + (v / 1000).toFixed(0) + 'K' }, position: 'left' },
         y2: { position: 'right', grid: { display: false }, ticks: { callback: v => fmtNum(v) + ' u' } }
       }
     }
@@ -329,7 +329,7 @@ function renderChartMarket(data) {
         { label: 'Profit', data: data.map(d => d.profit), backgroundColor: PALETTE_ALPHA(COLORS.green, 0.7), borderRadius: 4 },
       ]
     },
-    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'K' } } } }
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { callback: v => '$' + (v / 1000).toFixed(0) + 'K' } } } }
   });
 }
 
@@ -339,7 +339,7 @@ function renderSubcatChart(metric) {
   createChart('chartSubcat', {
     type: 'bar',
     data: { labels: data.map(d => d.sub_category), datasets: [{ label: isQty ? 'Quantity' : 'Revenue', data: data.map(d => isQty ? d.quantity : d.sales), backgroundColor: data.map((_, i) => PALETTE_ALPHA(PALETTE[i % PALETTE.length], 0.75)), borderRadius: 5 }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { ticks: { callback: v => isQty ? fmtNum(v) : '$' + (v/1000).toFixed(0) + 'K' } } } }
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { ticks: { callback: v => isQty ? fmtNum(v) : '$' + (v / 1000).toFixed(0) + 'K' } } } }
   });
 }
 
@@ -383,7 +383,7 @@ function renderRegionChart(metric) {
     data: { labels: data.map(d => d.region), datasets: [{ label: isQty ? 'Quantity' : 'Revenue', data: data.map(d => isQty ? d.quantity : d.sales), backgroundColor: data.map((_, i) => PALETTE_ALPHA(PALETTE[i % PALETTE.length], 0.75)), borderRadius: 4 }] },
     options: {
       responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-      scales: { x: { ticks: { font: { size: 10 } } }, y: { ticks: { callback: v => isQty ? fmtNum(v) : '$' + (v/1000).toFixed(0) + 'K' } } },
+      scales: { x: { ticks: { font: { size: 10 } } }, y: { ticks: { callback: v => isQty ? fmtNum(v) : '$' + (v / 1000).toFixed(0) + 'K' } } },
       onClick: (evt, elements) => { if (elements.length) openDrilldown(data[elements[0].index].region); },
       onHover: (evt, elements) => { evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; }
     }
@@ -438,7 +438,7 @@ async function openDrilldown(region) {
     renderDrillSubcat(d.top_subcategories);
     renderDrillSegments(d.segments);
     renderDrillCountries(d.top_countries);
-  } catch(e) {
+  } catch (e) {
     showToast('Failed to load region data', 'error');
   }
 }
@@ -502,7 +502,7 @@ async function loadTablePage(type, page) {
     renderPagination(type, page, json.total, s.limit);
     const el = document.getElementById(`${type}Info`);
     if (el) el.textContent = `Showing ${fmtNum((page - 1) * s.limit + 1)}–${fmtNum(Math.min(page * s.limit, json.total))} of ${fmtNum(json.total)} records`;
-  } catch(e) { showToast(`Failed to load ${type} data`, 'error'); }
+  } catch (e) { showToast(`Failed to load ${type} data`, 'error'); }
 }
 
 function renderTable(type, data) {
@@ -539,7 +539,7 @@ function exportTable(type) {
   const data = state.pages[type].data;
   if (!data || !data.length) { showToast('No data to export', 'error'); return; }
   const headers = Object.keys(data[0]);
-  const csv = [headers.join(','), ...data.map(row => headers.map(h => String(row[h]||'').includes(',') ? `"${row[h]}"` : row[h]).join(','))].join('\n');
+  const csv = [headers.join(','), ...data.map(row => headers.map(h => String(row[h] || '').includes(',') ? `"${row[h]}"` : row[h]).join(','))].join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -552,13 +552,20 @@ function exportTable(type) {
 // ─── Events ─────────────────────────────
 document.getElementById('topSearchInput').addEventListener('input', function () {
   const p = state.currentPage;
-  if (!['orders','products','customers','locations'].includes(p)) return;
+  if (!['orders', 'products', 'customers', 'locations'].includes(p)) return;
   const s = state.pages[p];
   clearTimeout(s.timer);
   s.timer = setTimeout(() => { s.q = this.value; loadTablePage(p, 1); }, 350);
 });
 
-window.addEventListener('pagesLoaded', () => { navigateTo('dashboard'); });
+window.addEventListener('pagesLoaded', () => { 
+  // Silent ping to wake up pythonanywhere backend early
+  fetch(API_BASE_URL + '/').catch(() => {});
+  
+  if (sessionStorage.getItem("storeiq_logged_in") === "true") {
+    navigateTo('dashboard'); 
+  }
+});
 window.addEventListener('resize', () => {
   if (window.innerWidth > 900) {
     document.getElementById('sidebar').classList.remove('mobile-open');

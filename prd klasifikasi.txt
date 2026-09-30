@@ -1,0 +1,76 @@
+PRODUCT REQUIREMENTS DOCUMENT (PRD): MODUL DETEKSI PRIORITAS PESANAN (VERSI WEB NATIVE)
+
+Dokumen ini adalah cetak biru teknis untuk mengimplementasikan kode dari Google Colab ke dalam ekosistem web terpisah. Sistem menggunakan arsitektur decoupled murni (Frontend statis dan Backend dinamis).
+
+==================================================
+1. ARSITEKTUR SISTEM & DEPLOYMENT
+==================================================
+* Frontend (UI): Dibangun menggunakan HTML5, CSS3, dan Vanilla JavaScript. Di-deploy secara serverless menggunakan Vercel.
+* Backend (API): Dibangun menggunakan Python (Flask atau FastAPI dengan WSGI adapter). Di-deploy menggunakan platform hosting PythonAnywhere.
+* Komunikasi: Pertukaran data menggunakan JavaScript Fetch API (AJAX) dengan metode HTTP POST berformat JSON.
+* Keamanan (Krusial): Backend wajib mengaktifkan CORS (Cross-Origin Resource Sharing) agar request dari domain Vercel (.vercel.app) diizinkan mengakses URL PythonAnywhere (.pythonanywhere.com).
+
+==================================================
+2. SPESIFIKASI BACKEND (PYTHONANYWHERE)
+==================================================
+A. Persyaratan Aset (Model Artifacts)
+Backend memerlukan 3 file yang harus dimuat (joblib.load) saat aplikasi web menyala di server PythonAnywhere:
+1. xgboost_clf_model.pkl (Model XGBoost)
+2. scaler_clf.pkl (StandardScaler untuk normalisasi angka)
+3. training_columns_clf.pkl (Daftar urutan kolom asli setelah One-Hot Encoding)
+
+B. Spesifikasi Endpoint
+* URL Endpoint: https://<username-kamu>.pythonanywhere.com/predict-priority
+* Method: POST
+* Expected Input (JSON Payload):
+{
+  "sales": 1500.0,
+  "discount": 0.1,
+  "quantity": 4,
+  "shipping_cost": 350.0,
+  "ship_mode": "First Class",
+  "segment": "Corporate",
+  "market": "APAC",
+  "region": "Southeast Asia",
+  "category": "Technology",
+  "sub_category": "Phones"
+}
+
+C. Logika Pemrosesan (Feature Engineering & Preprocessing)
+1. Feature Engineering:
+   - shipping_cost_ratio = shipping_cost / sales
+   - discount_impact = discount * sales
+   - total_cost_spent = sales + shipping_cost
+2. One-Hot Encoding Alignment:
+   - Ubah data JSON menjadi Pandas DataFrame 1 baris.
+   - Lakukan pd.get_dummies().
+   - Gunakan df.reindex(columns=training_columns_clf, fill_value=0) untuk memastikan struktur kolom identik dengan saat training di Colab.
+3. Scaling:
+   - Terapkan scaler_clf.transform() hanya pada kolom numerik.
+
+D. Expected Output (JSON Response)
+{
+  "status_code": 200,
+  "prediction": 1,
+  "priority_label": "Urgent",
+  "message": "Pesanan ini berisiko tinggi / butuh penanganan VIP!"
+}
+
+==================================================
+3. SPESIFIKASI FRONTEND (HTML/CSS/JS DI VERCEL)
+==================================================
+A. Elemen Input (User Interface - index.html)
+Buat elemen <form> yang berisi:
+* Number Inputs (<input type="number">): Sales (USD), Shipping Cost (USD), Quantity.
+* Range Slider (<input type="range">): Discount (%) dari 0 - 100. (JS wajib membagi nilai ini dengan 100 sebelum dikirim ke API).
+* Select Dropdowns (<select>): Category, Sub-Category, Segment, Region, Market, Ship Mode.
+
+B. Action & Event Handling (script.js)
+* Cegah Refresh: Tangkap event 'submit' pada form dan gunakan event.preventDefault() agar halaman tidak reload saat tombol ditekan.
+* Fetch Data: Gunakan JavaScript fetch() atau axios untuk mengirim body JSON ke URL PythonAnywhere.
+* Headers: Wajib menyertakan header { "Content-Type": "application/json" } pada request.
+
+C. Tampilan Hasil (DOM Manipulation)
+Sediakan elemen <div> statis kosong (misal id="result-box") untuk menyuntikkan hasil balasan API:
+* Jika response.prediction == 1: Ubah innerHTML/textContent div tersebut, tambahkan CSS class peringatan (misal warna latar merah, teks tebal) dan tampilkan label URGENT.
+* Jika response.prediction == 0: Ubah innerHTML/textContent div tersebut, tambahkan CSS class aman (misal warna latar hijau) dan tampilkan label NORMAL.

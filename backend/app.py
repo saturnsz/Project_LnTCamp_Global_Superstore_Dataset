@@ -17,6 +17,7 @@ DB_PATH  = os.path.join(BASE_DIR, 'superstore (1).sqlite')
 
 scaler_clf = cols_clf = model_clf = None
 scaler_reg = cols_reg = model_reg = None
+scaler_pri = cols_pri = model_pri = None
 MODEL_ERROR = None
 
 def _load_model(folder: str, scaler_file: str, cols_file: str, model_file: str):
@@ -30,6 +31,7 @@ _models_loaded = False
 def ensure_models_loaded():
     global scaler_clf, cols_clf, model_clf
     global scaler_reg, cols_reg, model_reg
+    global scaler_pri, cols_pri, model_pri
     global MODEL_ERROR, _models_loaded
 
     if _models_loaded or MODEL_ERROR:
@@ -38,7 +40,7 @@ def ensure_models_loaded():
     try:
         # Set OMP_NUM_THREADS to 1 to prevent xgboost from hanging in WSGI workers
         os.environ['OMP_NUM_THREADS'] = '1'
-        
+
         scaler_clf, cols_clf, model_clf = _load_model(
             'model_klasifikasi',
             'scaler_clf.pkl', 'training_columns_clf.pkl', 'xgboost_clf_model.pkl',
@@ -47,13 +49,16 @@ def ensure_models_loaded():
             'model_regresi',
             'scaler_reg.pkl', 'training_columns_reg.pkl', 'xgboost_reg_model.pkl',
         )
-        
-        # Configure model to use single thread to avoid OpenMP deadlock
-        if hasattr(model_clf, 'set_params'):
-            model_clf.set_params(n_jobs=1)
-        if hasattr(model_reg, 'set_params'):
-            model_reg.set_params(n_jobs=1)
-            
+        scaler_pri, cols_pri, model_pri = _load_model(
+            'klasifiksai 2',
+            'scaler_clf (1).pkl', 'training_columns_clf (1).pkl', 'xgboost_clf_model (1).pkl',
+        )
+
+        # Configure models to use single thread to avoid OpenMP deadlock
+        for m in (model_clf, model_reg, model_pri):
+            if hasattr(m, 'set_params'):
+                m.set_params(n_jobs=1)
+
         print("[OK] ML models loaded successfully")
         _models_loaded = True
     except Exception as exc:
@@ -105,6 +110,19 @@ class PredictInput(BaseModel):
     order_priority: str
     region:         str
 
+class PriorityInput(BaseModel):
+    """Input for Order Priority Triage — order_priority is the target, not an input."""
+    sales:         float = Field(..., gt=0)
+    discount:      float = Field(..., ge=0, le=100)
+    quantity:      int   = Field(..., ge=1)
+    shipping_cost: float = Field(..., ge=0)
+    category:      str
+    sub_category:  str
+    segment:       str
+    market:        str
+    ship_mode:     str
+    region:        str
+
 # ─── Feature Engineering ──────────────────────────────────────────────────────
 
 def build_input_df(data: PredictInput, training_cols: list[str]) -> pd.DataFrame:
@@ -146,6 +164,46 @@ def build_input_df(data: PredictInput, training_cols: list[str]) -> pd.DataFrame
 
     df = pd.DataFrame([row])[training_cols]
     return df
+
+def build_priority_df(data: 'PriorityInput', training_cols: list) -> pd.DataFrame:
+    """Feature engineering for the Order Priority Triage model (klasifiksai 2)."""
+    sales         = data.sales
+    discount      = data.discount / 100.0
+    quantity      = data.quantity
+    shipping_cost = data.shipping_cost
+
+    shipping_cost_ratio = shipping_cost / sales if sales > 0 else 0.0
+    discount_impact     = sales * discount
+    total_cost_spent    = sales + shipping_cost  # per PRD spec
+
+    row = {
+        'sales':               sales,
+        'discount':            discount,
+        'quantity':            quantity,
+        'shipping_cost':       shipping_cost,
+        'shipping_cost_ratio': shipping_cost_ratio,
+        'discount_impact':     discount_impact,
+        'total_cost_spent':    total_cost_spent,
+    }
+
+    for col in training_cols:
+        if col not in row:
+            row[col] = 0
+
+    _ohe_map = {
+        f'ship_mode_{data.ship_mode}':       1,
+        f'segment_{data.segment}':           1,
+        f'market_{data.market}':             1,
+        f'region_{data.region}':             1,
+        f'category_{data.category}':         1,
+        f'sub_category_{data.sub_category}': 1,
+    }
+    for key, val in _ohe_map.items():
+        if key in row:
+            row[key] = val
+
+    return pd.DataFrame([row])[training_cols]
+
 
 def _get_numeric_cols(scaler) -> list[str]:
     if hasattr(scaler, 'feature_names_in_'):
@@ -769,9 +827,6 @@ def predict_combined():
     except Exception as exc:
         return jsonify({"detail": str(exc)}), 500
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
-
 
 @app.route("/api/dashboard-summary", methods=["GET"])
 def dashboard_summary():
@@ -787,3 +842,84 @@ def dashboard_summary():
         "region_stats": region_stats().get_json(),
         "quantity_stats": quantity_stats().get_json()
     })
+
+
+# ─── Order Priority Triage Endpoint ──────────────────────────────────────────
+
+# Mapping numeric class → human-readable priority label.
+# Urutan sesuai LabelEncoder sklearn (alfabetis): Critical=0, High=1, Low=2, Medium=3
+_PRIORITY_LABELS = {
+    0: "Critical",
+    1: "High",
+    2: "Low",
+    3: "Medium",
+}
+
+_PRIORITY_META = {
+    "Critical": {
+        "message": "Pesanan ini KRITIS — butuh penanganan segera / VIP!",
+        "urgency": "critical",
+    },
+    "High": {
+        "message": "Prioritas TINGGI — proses lebih cepat dari standar.",
+        "urgency": "high",
+    },
+    "Medium": {
+        "message": "Prioritas SEDANG — tangani sesuai alur operasional biasa.",
+        "urgency": "medium",
+    },
+    "Low": {
+        "message": "Prioritas RENDAH — tidak mendesak, bisa dijadwalkan.",
+        "urgency": "low",
+    },
+}
+
+
+@app.route("/api/predict/priority", methods=["POST"])
+def predict_priority():
+    """Order Priority Triage — predicts Critical / High / Medium / Low."""
+    ensure_models_loaded()
+    if MODEL_ERROR:
+        return jsonify({"detail": f"ML models tidak dapat dimuat: {MODEL_ERROR}"}), 503
+    try:
+        payload = PriorityInput(**request.json)
+
+        df = build_priority_df(payload, cols_pri)
+
+        df_scaled    = df.copy()
+        numeric_cols = _get_numeric_cols(scaler_pri)
+        valid_num_cols = [c for c in numeric_cols if c in df_scaled.columns]
+        if valid_num_cols:
+            df_scaled[valid_num_cols] = scaler_pri.transform(df[valid_num_cols])
+
+        pred  = model_pri.predict(df_scaled)[0]
+        proba = model_pri.predict_proba(df_scaled)[0]
+
+        pred_int       = int(pred)
+        priority_label = _PRIORITY_LABELS.get(pred_int, f"Class {pred_int}")
+        meta           = _PRIORITY_META.get(priority_label, {"message": "", "urgency": "medium"})
+        confidence     = round(float(max(proba)) * 100, 1)
+
+        # Build per-class probabilities dict
+        class_probs = {
+            _PRIORITY_LABELS.get(i, f"Class {i}"): round(float(p) * 100, 1)
+            for i, p in enumerate(proba)
+        }
+
+        return jsonify({
+            "status":         "success",
+            "prediction":     pred_int,
+            "priority_label": priority_label,
+            "urgency":        meta["urgency"],
+            "message":        meta["message"],
+            "confidence":     confidence,
+            "class_probs":    class_probs,
+        })
+    except ValidationError as e:
+        return jsonify(e.errors()), 400
+    except Exception as exc:
+        return jsonify({"detail": str(exc)}), 500
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)

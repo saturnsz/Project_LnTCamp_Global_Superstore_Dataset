@@ -47,8 +47,10 @@ function updateSubcategory(prefix) {
 
 // === Initialize subcategories on page load ===
 window.addEventListener('pagesLoaded', function () {
-  // Unified form only
+  // Unified form
   updateSubcategory('u');
+  // Priority Triage form
+  updateSubcategory('p');
 });
 
 // === Get Form Values from unified form ===
@@ -319,3 +321,119 @@ function showRegResult(json, inputData) {
 window.predictCombined   = predictCombined;
 window.syncSlider        = syncSlider;
 window.updateSubcategory = updateSubcategory;
+
+// ===================================================
+//   ORDER PRIORITY TRIAGE
+// ===================================================
+
+// === Get Priority Form Values ===
+function getPriorityFormValues() {
+  function get(id) { return document.getElementById('p-' + id); }
+  return {
+    sales:         parseFloat(get('sales').value)    || 0,
+    discount:      parseFloat(get('discount').value) || 0,
+    shipping_cost: parseFloat(get('shipping').value) || 0,
+    quantity:      parseInt(get('quantity').value)   || 1,
+    category:      get('category').value,
+    sub_category:  get('subcategory').value,
+    segment:       get('segment').value,
+    market:        get('market').value,
+    ship_mode:     get('shipmode').value,
+    region:        get('region').value,
+  };
+}
+
+// === Predict Priority ===
+async function predictPriority() {
+  var data = getPriorityFormValues();
+  if (!validateInputs(data)) return;
+
+  setBtnLoading('priorityPredictBtn', true);
+
+  try {
+    await ensureServerAwake('priorityPredictBtn', 'Membangunkan server AI...', 'Menganalisis prioritas...');
+    setBtnText('priorityPredictBtn', '<span class="loading-spinner"></span> Mendeteksi prioritas...');
+
+    var res = await fetchWithTimeout(API_BASE_URL + '/api/predict/priority', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    var json = await res.json();
+
+    if (!res.ok || json.status !== 'success') {
+      throw new Error(parseBackendError(json));
+    }
+
+    showPriorityResult(json);
+
+    var urgencyToastType = json.urgency === 'critical' || json.urgency === 'high' ? 'error' : 'success';
+    showToast(
+      'Prioritas Pesanan: ' + json.priority_label + ' (Keyakinan: ' + json.confidence + '%)',
+      urgencyToastType,
+      4000
+    );
+
+  } catch (e) {
+    var msg = (e.name === 'AbortError')
+      ? 'Request timeout (90 detik). Server AI mungkin overload, coba lagi.'
+      : e.message;
+    showToast('Gagal mendeteksi prioritas: ' + msg, 'error');
+    console.error(e);
+  } finally {
+    setBtnLoading('priorityPredictBtn', false, '<i class="fa-solid fa-magnifying-glass-chart"></i> Deteksi Prioritas Pesanan');
+  }
+}
+
+// === Show Priority Result ===
+var PRIORITY_ICONS = {
+  critical: 'fa-circle-xmark',
+  high:     'fa-circle-chevron-up',
+  medium:   'fa-circle-minus',
+  low:      'fa-circle-arrow-down',
+};
+
+function showPriorityResult(json) {
+  var box        = document.getElementById('priorityResult');
+  var badge      = document.getElementById('priorityBadge');
+  var badgeIcon  = document.getElementById('priorityBadgeIcon');
+  var badgeLabel = document.getElementById('priorityBadgeLabel');
+  var confEl     = document.getElementById('priorityConfidence');
+  var msgEl      = document.getElementById('priorityMessage');
+
+  // Animate in
+  box.style.opacity = '1';
+  box.style.transition = 'opacity 0.4s ease';
+
+  // Apply urgency class to badge
+  badge.className = 'priority-badge priority-badge-' + json.urgency;
+  var iconClass = PRIORITY_ICONS[json.urgency] || 'fa-circle-question';
+  badgeIcon.className = 'fa-solid ' + iconClass;
+  badgeLabel.textContent = json.priority_label;
+  confEl.textContent = 'Keyakinan model: ' + json.confidence + '%';
+  msgEl.textContent = json.message;
+
+  // Per-class probability bars
+  var cp = json.class_probs || {};
+  var barMap = {
+    Critical: { bar: 'barCritical', pct: 'pctCritical' },
+    High:     { bar: 'barHigh',     pct: 'pctHigh' },
+    Medium:   { bar: 'barMedium',   pct: 'pctMedium' },
+    Low:      { bar: 'barLow',      pct: 'pctLow' },
+  };
+
+  Object.keys(barMap).forEach(function (label) {
+    var pct  = cp[label] !== undefined ? cp[label] : 0;
+    var ids  = barMap[label];
+    var pctEl = document.getElementById(ids.pct);
+    var barEl = document.getElementById(ids.bar);
+    if (pctEl) pctEl.textContent = pct + '%';
+    setTimeout(function () {
+      if (barEl) barEl.style.width = pct + '%';
+    }, 100);
+  });
+}
+
+// === Expose priority functions ===
+window.predictPriority = predictPriority;

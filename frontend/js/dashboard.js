@@ -1,5 +1,8 @@
 'use strict';
 const API_BASE_URL = 'https://adwyaalk.pythonanywhere.com';
+// const API_BASE_URL = 'http://127.0.0.1:5000'; // For local testing
+
+
 /* ===========================================
    StoreIQ Admin — Dashboard JS
    =========================================== */

@@ -197,5 +197,188 @@
 
     </div>
   </div>
+
+  <!-- ─── Order Priority Triage Section ─────────────────────────────── -->
+  <div class="priority-triage-section">
+    <div class="priority-triage-header">
+      <div class="priority-triage-title-group">
+        <div class="priority-triage-badge"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <div>
+          <h2 class="priority-triage-title">Order Priority Triage</h2>
+          <p class="priority-triage-subtitle">Prediksi otomatis tingkat urgensi pesanan: Critical / High / Medium / Low</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="priority-triage-layout">
+
+      <!-- Priority Input Panel -->
+      <div class="ai-panel priority-input-panel">
+        <div class="ai-panel-header priority-header">
+          <div class="ai-panel-icon priority-icon"><i class="fa-solid fa-sliders"></i></div>
+          <div>
+            <div class="ai-panel-title">Parameter Pesanan</div>
+            <div class="ai-panel-desc">Masukkan detail transaksi &mdash; sistem akan memprediksi prioritasnya</div>
+          </div>
+        </div>
+        <div class="ai-form">
+          <div class="form-grid" id="priorityFormGrid">
+            <div class="form-group">
+              <label class="form-label">Sales (USD)</label>
+              <input type="number" class="form-control" id="p-sales" value="1500" min="0" step="0.01">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Kuantitas</label>
+              <input type="number" class="form-control" id="p-quantity" value="4" min="1" step="1">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Diskon (%)</label>
+              <div class="slider-container">
+                <input type="range" class="form-range" id="p-discount-range" min="0" max="100" step="1"
+                  value="10" oninput="syncSlider('p-discount', this.value)">
+                <span class="slider-value" id="p-discount-val">10%</span>
+              </div>
+              <input type="hidden" id="p-discount" value="10">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Biaya Kirim (USD)</label>
+              <input type="number" class="form-control" id="p-shipping" value="350" min="0" step="0.01">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Kategori</label>
+              <select class="form-control" id="p-category" onchange="updateSubcategory('p')">
+                <option value="Furniture">Furniture</option>
+                <option value="Office Supplies">Office Supplies</option>
+                <option value="Technology" selected>Technology</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Sub-Kategori</label>
+              <select class="form-control" id="p-subcategory"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Segment</label>
+              <select class="form-control" id="p-segment">
+                <option value="Consumer">Consumer</option>
+                <option value="Corporate" selected>Corporate</option>
+                <option value="Home Office">Home Office</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Market</label>
+              <select class="form-control" id="p-market">
+                <option value="US">US</option>
+                <option value="EU">EU</option>
+                <option value="APAC" selected>APAC</option>
+                <option value="LATAM">LATAM</option>
+                <option value="EMEA">EMEA</option>
+                <option value="Africa">Africa</option>
+                <option value="Canada">Canada</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Ship Mode</label>
+              <select class="form-control" id="p-shipmode">
+                <option value="Standard Class">Standard Class</option>
+                <option value="Second Class">Second Class</option>
+                <option value="First Class" selected>First Class</option>
+                <option value="Same Day">Same Day</option>
+              </select>
+            </div>
+            <div class="form-group full">
+              <label class="form-label">Region</label>
+              <select class="form-control" id="p-region">
+                <option value="West">West</option>
+                <option value="East">East</option>
+                <option value="Central">Central</option>
+                <option value="South">South</option>
+                <option value="North">North</option>
+                <option value="EMEA">EMEA</option>
+                <option value="Southeast Asia" selected>Southeast Asia</option>
+                <option value="North Asia">North Asia</option>
+                <option value="Oceania">Oceania</option>
+                <option value="Central Asia">Central Asia</option>
+                <option value="Caribbean">Caribbean</option>
+                <option value="Canada">Canada</option>
+              </select>
+            </div>
+          </div>
+
+          <button class="predict-btn priority-btn" id="priorityPredictBtn" onclick="predictPriority()">
+            <span class="btn-text"><i class="fa-solid fa-magnifying-glass-chart"></i> Deteksi Prioritas Pesanan</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Priority Result Panel -->
+      <div class="ai-panel priority-result-panel">
+        <div class="ai-panel-header priority-header">
+          <div class="ai-panel-icon priority-icon"><i class="fa-solid fa-chart-bar"></i></div>
+          <div>
+            <div class="ai-panel-title">Hasil Deteksi Prioritas</div>
+            <div class="ai-panel-desc">Tingkat urgensi berdasarkan analisis XGBoost</div>
+          </div>
+        </div>
+        <div class="ai-form">
+          <div class="priority-result-box" id="priorityResult" style="opacity:0.4;">
+
+            <!-- Main result badge -->
+            <div class="priority-badge-wrap">
+              <div class="priority-badge" id="priorityBadge">
+                <i class="fa-solid fa-circle-question" id="priorityBadgeIcon"></i>
+                <span id="priorityBadgeLabel">Menunggu Input&hellip;</span>
+              </div>
+              <div class="priority-confidence" id="priorityConfidence">Isi form &amp; klik Deteksi</div>
+            </div>
+
+            <!-- Contextual message -->
+            <div class="priority-message" id="priorityMessage">
+              Sistem akan menganalisis parameter transaksi dan memberikan rekomendasi penanganan pesanan.
+            </div>
+
+            <!-- Per-class probability bars -->
+            <div class="priority-bars">
+              <div class="priority-bars-title">Distribusi Probabilitas Kelas</div>
+
+              <div class="priority-bar-row">
+                <span class="priority-bar-name critical-text"><i class="fa-solid fa-circle-xmark"></i> Critical</span>
+                <div class="bar-track">
+                  <div class="bar-fill priority-bar-critical" id="barCritical" style="width:0%"></div>
+                </div>
+                <span class="priority-bar-pct" id="pctCritical">&#8212;</span>
+              </div>
+
+              <div class="priority-bar-row">
+                <span class="priority-bar-name high-text"><i class="fa-solid fa-circle-chevron-up"></i> High</span>
+                <div class="bar-track">
+                  <div class="bar-fill priority-bar-high" id="barHigh" style="width:0%"></div>
+                </div>
+                <span class="priority-bar-pct" id="pctHigh">&#8212;</span>
+              </div>
+
+              <div class="priority-bar-row">
+                <span class="priority-bar-name medium-text"><i class="fa-solid fa-circle-minus"></i> Medium</span>
+                <div class="bar-track">
+                  <div class="bar-fill priority-bar-medium" id="barMedium" style="width:0%"></div>
+                </div>
+                <span class="priority-bar-pct" id="pctMedium">&#8212;</span>
+              </div>
+
+              <div class="priority-bar-row">
+                <span class="priority-bar-name low-text"><i class="fa-solid fa-circle-arrow-down"></i> Low</span>
+                <div class="bar-track">
+                  <div class="bar-fill priority-bar-low" id="barLow" style="width:0%"></div>
+                </div>
+                <span class="priority-bar-pct" id="pctLow">&#8212;</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
 </div>
 <!-- end ai page -->

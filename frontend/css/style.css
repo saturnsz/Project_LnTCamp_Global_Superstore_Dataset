@@ -2029,3 +2029,217 @@ input, select, textarea { font-family: inherit; }
 }
 
 .dashboard-loading-overlay { position: fixed !important; }
+
+/* ─── Order Priority Triage Section ─────────────── */
+
+.priority-triage-section {
+  margin-top: 40px;
+  animation: fadeInUp 0.4s ease both;
+}
+
+.priority-triage-header {
+  margin-bottom: 24px;
+}
+
+.priority-triage-title-group {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.priority-triage-badge {
+  width: 48px; height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(239,68,68,0.25), rgba(234,88,12,0.15));
+  border: 1px solid rgba(239,68,68,0.35);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  color: #ef4444;
+  flex-shrink: 0;
+  box-shadow: 0 0 18px rgba(239,68,68,0.12);
+}
+
+.priority-triage-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+}
+
+.priority-triage-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.priority-triage-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+/* ─── Priority panel header accent ─ */
+.priority-header {
+  border-bottom: 1px solid rgba(239,68,68,0.2) !important;
+}
+
+.ai-panel-icon.priority-icon {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(239,68,68,0.2), rgba(234,88,12,0.1));
+  border: 1px solid rgba(239,68,68,0.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px;
+  color: #ef4444;
+}
+
+/* ─── Priority Result Box ─────────── */
+.priority-result-box {
+  padding: 4px 0;
+  transition: opacity 0.4s ease;
+}
+
+/* ─── Priority Badge ───────────────── */
+.priority-badge-wrap {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.priority-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 22px;
+  border-radius: 50px;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  border: 1.5px solid;
+  transition: var(--transition);
+}
+
+/* Default / pending state */
+.priority-badge {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--border-light);
+  color: var(--text-secondary);
+}
+
+/* Critical — red */
+.priority-badge-critical {
+  background: linear-gradient(135deg, rgba(239,68,68,0.18), rgba(220,38,38,0.08));
+  border-color: rgba(239,68,68,0.5);
+  color: #f87171;
+  box-shadow: 0 0 24px rgba(239,68,68,0.2);
+}
+
+/* High — orange */
+.priority-badge-high {
+  background: linear-gradient(135deg, rgba(234,88,12,0.18), rgba(249,115,22,0.08));
+  border-color: rgba(234,88,12,0.5);
+  color: #fb923c;
+  box-shadow: 0 0 24px rgba(234,88,12,0.2);
+}
+
+/* Medium — amber */
+.priority-badge-medium {
+  background: linear-gradient(135deg, rgba(245,158,11,0.18), rgba(251,191,36,0.08));
+  border-color: rgba(245,158,11,0.4);
+  color: #fbbf24;
+  box-shadow: 0 0 24px rgba(245,158,11,0.15);
+}
+
+/* Low — green */
+.priority-badge-low {
+  background: linear-gradient(135deg, rgba(34,197,94,0.15), rgba(16,185,129,0.08));
+  border-color: rgba(34,197,94,0.4);
+  color: #4ade80;
+  box-shadow: 0 0 24px rgba(34,197,94,0.15);
+}
+
+.priority-confidence {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ─── Priority contextual message ─── */
+.priority-message {
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin-bottom: 20px;
+  border-left: 3px solid rgba(239,68,68,0.4);
+  line-height: 1.6;
+}
+
+/* ─── Priority probability bars ───── */
+.priority-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.priority-bars-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.priority-bar-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 44px;
+  align-items: center;
+  gap: 10px;
+}
+
+.priority-bar-name {
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.priority-bar-pct {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+/* Bar fill color variants */
+.priority-bar-critical { background: linear-gradient(90deg, #ef4444, #dc2626); }
+.priority-bar-high     { background: linear-gradient(90deg, #f97316, #ea580c); }
+.priority-bar-medium   { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.priority-bar-low      { background: linear-gradient(90deg, #22c55e, #16a34a); }
+
+/* Label accent colors */
+.critical-text { color: #f87171; }
+.high-text     { color: #fb923c; }
+.medium-text   { color: #fbbf24; }
+.low-text      { color: #4ade80; }
+
+/* ─── Priority button ──────────────── */
+.predict-btn.priority-btn {
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  box-shadow: 0 4px 20px rgba(239,68,68,0.3);
+}
+
+.predict-btn.priority-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f87171, #ef4444);
+  box-shadow: 0 6px 28px rgba(239,68,68,0.45);
+  transform: translateY(-2px);
+}
+
+/* ─── Responsive Priority Triage ────── */
+@media (max-width: 900px) {
+  .priority-triage-layout { grid-template-columns: 1fr; }
+}
+

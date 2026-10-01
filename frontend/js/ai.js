@@ -390,11 +390,11 @@ async function predictPriority() {
 // === Show Priority Result ===
 var PRIORITY_ICONS = {
   critical: 'fa-triangle-exclamation',
-  urgent:   'fa-triangle-exclamation',
+  urgent:   'fa-triangle-exclamation',   // binary: Urgent (prediction=1)
   high:     'fa-circle-chevron-up',
   medium:   'fa-circle-minus',
   low:      'fa-circle-check',
-  normal:   'fa-circle-check',
+  normal:   'fa-circle-check',           // binary: Normal (prediction=0)
 };
 
 function showPriorityResult(json) {

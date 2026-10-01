@@ -176,15 +176,22 @@ def build_input_df(data: PredictInput, training_cols: list[str]) -> pd.DataFrame
     return df
 
 def build_priority_df(data: 'PriorityInput', training_cols: list) -> pd.DataFrame:
-    """Feature engineering for the Order Priority Triage model (klasifiksai 2)."""
+    """Feature engineering for the Order Priority Triage model (klasifiksai 2).
+
+    PRD spec: frontend slider kirim nilai 0-100 (integer persen).
+    Backend selalu membagi 100 untuk mendapatkan nilai desimal 0.0-1.0
+    sesuai skala training model.
+    """
     sales         = data.sales
-    discount      = data.discount / 100.0 if data.discount > 1 else data.discount
+    # Selalu bagi 100 — frontend (slider 0-100) sudah dikonfirmasi kirim persen integer
+    discount      = data.discount / 100.0
     quantity      = data.quantity
     shipping_cost = data.shipping_cost
 
+    # Feature engineering sesuai PRD klasifikasi.txt
     shipping_cost_ratio = shipping_cost / sales if sales > 0 else 0.0
-    discount_impact     = sales * discount
-    total_cost_spent    = sales + shipping_cost  # per PRD spec
+    discount_impact     = discount * sales                 # PRD: discount_impact = discount * sales
+    total_cost_spent    = sales + shipping_cost            # PRD: total_cost_spent = sales + shipping_cost
 
     row = {
         'sales':               sales,
@@ -196,10 +203,12 @@ def build_priority_df(data: 'PriorityInput', training_cols: list) -> pd.DataFram
         'total_cost_spent':    total_cost_spent,
     }
 
+    # Inisialisasi semua kolom OHE ke 0 dulu
     for col in training_cols:
         if col not in row:
             row[col] = 0
 
+    # Set kolom OHE yang relevan ke 1
     _ohe_map = {
         f'ship_mode_{data.ship_mode}':       1,
         f'segment_{data.segment}':           1,
@@ -920,7 +929,11 @@ _PRIORITY_META = {
 @app.route("/api/predict/priority", methods=["POST"])
 @app.route("/predict-priority", methods=["POST"])
 def predict_priority():
-    """Order Priority Triage — predicts Urgent / Normal (or Critical / High / Medium / Low)."""
+    """Order Priority Triage (klasifiksai 2) — predicts Urgent / Normal.
+
+    Model adalah binary classifier (kelas 0=Normal, kelas 1=Urgent).
+    PRD output: { status_code, prediction, priority_label, message }
+    """
     ensure_models_loaded()
     if MODEL_ERROR:
         return jsonify({"detail": f"ML models tidak dapat dimuat: {MODEL_ERROR}"}), 503
@@ -929,8 +942,8 @@ def predict_priority():
 
         df = build_priority_df(payload, cols_pri)
 
-        df_scaled    = df.copy()
-        numeric_cols = _get_numeric_cols(scaler_pri)
+        df_scaled      = df.copy()
+        numeric_cols   = _get_numeric_cols(scaler_pri)
         valid_num_cols = [c for c in numeric_cols if c in df_scaled.columns]
         if valid_num_cols:
             df_scaled[valid_num_cols] = scaler_pri.transform(df[valid_num_cols])
@@ -942,47 +955,55 @@ def predict_priority():
         confidence = round(float(max(proba)) * 100, 1)
 
         if len(proba) == 2:
+            # ── Binary classifier: kelas 0 = Normal, kelas 1 = Urgent ──
+            # Sesuai PRD: prediction=1 → Urgent, prediction=0 → Normal
             is_urgent   = bool(pred_int == 1)
             urgent_prob = round(float(proba[1]) * 100, 1)
             normal_prob = round(float(proba[0]) * 100, 1)
             priority_label = "Urgent" if is_urgent else "Normal"
-            urgency = "critical" if is_urgent else "low"
+            # Gunakan urgency yang cocok dengan CSS class di frontend
+            urgency = "urgent" if is_urgent else "normal"
             message = (
                 "Pesanan ini berisiko tinggi / butuh penanganan VIP!"
                 if is_urgent else
                 "Pesanan reguler / penanganan standar operasional."
             )
+            # class_probs: tampilkan Urgent vs Normal sesuai probabilitas asli model
+            # Bar Critical/High/Medium/Low diisi dari dua kelas binary secara proporsional
             class_probs = {
-                "Urgent": urgent_prob,
-                "Normal": normal_prob,
-                "Critical": urgent_prob if is_urgent else 0.0,
-                "High": urgent_prob,
-                "Medium": normal_prob,
-                "Low": normal_prob if not is_urgent else 0.0,
+                "Urgent":   urgent_prob,
+                "Normal":   normal_prob,
+                "Critical": urgent_prob,
+                "High":     urgent_prob,
+                "Medium":   normal_prob,
+                "Low":      normal_prob,
             }
         else:
+            # ── Multi-class classifier: Critical=0, High=1, Low=2, Medium=3 ──
             priority_label = _PRIORITY_LABELS.get(pred_int, f"Class {pred_int}")
-            meta = _PRIORITY_META.get(priority_label, {"message": "", "urgency": "medium"})
-            urgency = meta["urgency"]
-            message = meta["message"]
-            class_probs = {
+            meta           = _PRIORITY_META.get(priority_label, {"message": "", "urgency": "medium"})
+            urgency        = meta["urgency"]
+            message        = meta["message"]
+            class_probs    = {
                 _PRIORITY_LABELS.get(i, f"Class {i}"): round(float(p) * 100, 1)
                 for i, p in enumerate(proba)
             }
             is_urgent = urgency in ("critical", "high")
+            urgent_prob = round(float(proba[1]) * 100, 1) if len(proba) > 1 else confidence
+            normal_prob = round(100.0 - urgent_prob, 1)
 
         return jsonify({
-            "status":         "success",
-            "status_code":    200,
-            "prediction":     pred_int,
-            "is_urgent":      is_urgent,
-            "priority_label": priority_label,
-            "urgency":        urgency,
-            "message":        message,
-            "confidence":     confidence,
-            "urgent_probability": round(float(proba[1]) * 100, 1) if len(proba) > 1 else confidence,
-            "normal_probability": round(float(proba[0]) * 100, 1) if len(proba) > 1 else round(100.0 - confidence, 1),
-            "class_probs":    class_probs,
+            "status":             "success",
+            "status_code":        200,
+            "prediction":         pred_int,
+            "is_urgent":          is_urgent,
+            "priority_label":     priority_label,
+            "urgency":            urgency,
+            "message":            message,
+            "confidence":         confidence,
+            "urgent_probability": urgent_prob,
+            "normal_probability": normal_prob,
+            "class_probs":        class_probs,
         })
     except ValidationError as e:
         return jsonify(e.errors()), 400

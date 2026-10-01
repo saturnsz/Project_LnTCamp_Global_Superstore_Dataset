@@ -141,6 +141,67 @@
     </div>
   </div>
 
+  <!-- ══════════════════════════════════════
+       GEOGRAPHIC EXPLORER & COUNTRY METRICS
+  ═══════════════════════════════════════ -->
+  <div class="geo-explorer-section" id="geoExplorerSection">
+    <div class="charts-grid" style="margin-bottom:24px;">
+
+      <!-- Left Column: World Map (col-7) -->
+      <div class="chart-card col-7 geo-map-card">
+        <div class="chart-header" style="flex-wrap:wrap;gap:10px;">
+          <div>
+            <div class="chart-title">
+              <i class="fa-solid fa-earth-americas" style="color:var(--accent-blue);margin-right:8px;"></i>
+              Global Geographic Explorer
+            </div>
+            <div class="chart-subtitle">Interactive map of 147 store markets — select a country to inspect metrics</div>
+          </div>
+          <div class="map-toolbar-actions">
+            <!-- Country Quick Selector -->
+            <div class="map-country-dropdown-wrap">
+              <select id="mapCountrySelect" class="filter-control" style="max-width:220px;font-size:12px;padding:6px 10px;" onchange="handleCountryDropdownChange(this.value)" aria-label="Select Country">
+                <option value="">Choose Country (147)...</option>
+              </select>
+            </div>
+            <!-- Zoom & Pan Controls -->
+            <div class="map-zoom-controls">
+              <button class="map-btn" onclick="zoomMap(1.25)" title="Zoom in" aria-label="Zoom in"><i class="fa-solid fa-plus"></i></button>
+              <button class="map-btn" onclick="zoomMap(0.8)" title="Zoom out" aria-label="Zoom out"><i class="fa-solid fa-minus"></i></button>
+              <button class="map-btn" onclick="resetMapZoom()" title="Reset view" aria-label="Reset view"><i class="fa-solid fa-arrows-rotate"></i></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Map Container -->
+        <div class="geo-map-container" id="geoMapContainer">
+          <div class="map-loading" id="mapSvgLoading">
+            <div class="dashboard-loading-spinner" style="width:28px;height:28px;margin-bottom:8px;"></div>
+            <div style="font-size:12px;color:var(--text-secondary);">Loading interactive world map...</div>
+          </div>
+          <div class="map-svg-wrap" id="mapSvgWrap"></div>
+          <div class="map-tooltip" id="mapTooltip" style="display:none;"></div>
+        </div>
+
+        <!-- Map Legend & Instructions -->
+        <div class="map-legend-footer">
+          <div class="map-legend-items">
+            <div class="map-legend-item"><span class="legend-swatch has-data-swatch"></span> Store Markets (147)</div>
+            <div class="map-legend-item"><span class="legend-swatch selected-swatch"></span> Selected Country</div>
+            <div class="map-legend-item"><span class="legend-swatch no-data-swatch"></span> No Presence</div>
+          </div>
+          <div class="map-hint-text"><i class="fa-solid fa-keyboard" style="margin-right:4px;"></i> Tab + Enter to select via keyboard · Drag to pan</div>
+        </div>
+      </div>
+
+      <!-- Right Column: Location & Date Statistics Card (col-5) -->
+      <div class="chart-card col-5 geo-stats-card" id="geoStatsCard">
+        <!-- Rendered dynamically by updateLocationStats() -->
+      </div>
+
+    </div>
+  </div>
+
   <!-- Charts Row 1 -->
   <div class="charts-grid">
     <div class="chart-card col-8">

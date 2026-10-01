@@ -1,4 +1,4 @@
-/* =============================================
+﻿/* =============================================
    StoreIQ Admin — Auth System (Demo / No DB)
    ============================================= */
 
@@ -69,11 +69,9 @@
     setTimeout(function () {
       sessionStorage.setItem(SESSION_KEY, "true");
       showApp();
+      if (typeof navigateTo === "function") navigateTo("dashboard");
       if (typeof showToast === "function") showToast("Selamat datang, Admin! 👋", "success");
       if (btnEl) { btnEl.textContent = "Sign In"; btnEl.disabled = false; }
-      if (typeof navigateTo === "function") {
-        navigateTo('dashboard');
-      }
     }, 600);
   };
 
@@ -124,4 +122,5 @@
   }
 
 })();
+
 

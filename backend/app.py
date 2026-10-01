@@ -20,6 +20,7 @@ DB_PATH  = os.path.join(BASE_DIR, 'superstore (1).sqlite')
 # The ML Classifier retained is Order Priority Triage (klasifiksai 2),
 # which solves a genuine, non-redundant multi-class operational problem.
 
+scaler_clf = cols_clf = model_clf = None
 scaler_reg = cols_reg = model_reg = None
 scaler_pri = cols_pri = model_pri = None
 MODEL_ERROR = None
@@ -33,6 +34,7 @@ def _load_model(folder: str, scaler_file: str, cols_file: str, model_file: str):
 _models_loaded = False
 
 def ensure_models_loaded():
+    global scaler_clf, cols_clf, model_clf
     global scaler_reg, cols_reg, model_reg
     global scaler_pri, cols_pri, model_pri
     global MODEL_ERROR, _models_loaded
@@ -50,18 +52,24 @@ def ensure_models_loaded():
             'scaler_reg.pkl', 'training_columns_reg.pkl', 'xgboost_reg_model.pkl',
         )
 
-        # 2. Operational Triage (Multi-Class Classifier - Order Level Priority)
+        # 2. Profit Classifier (Classification - Profit/Loss Status)
+        scaler_clf, cols_clf, model_clf = _load_model(
+            'model_klasifikasi',
+            'scaler_clf.pkl', 'training_columns_clf.pkl', 'xgboost_clf_model.pkl',
+        )
+
+        # 3. Operational Triage (Multi-Class Classifier - Order Level Priority, klasifiksai 2)
         scaler_pri, cols_pri, model_pri = _load_model(
             'klasifiksai 2',
             'scaler_clf (1).pkl', 'training_columns_clf (1).pkl', 'xgboost_clf_model (1).pkl',
         )
 
         # Configure models to use single thread to avoid OpenMP deadlock
-        for m in (model_reg, model_pri):
+        for m in (model_clf, model_reg, model_pri):
             if hasattr(m, 'set_params'):
                 m.set_params(n_jobs=1)
 
-        print("[OK] ML models loaded successfully (Regression & Priority Triage)")
+        print("[OK] ML models loaded successfully (Regression, Classification & Priority Triage)")
         _models_loaded = True
     except Exception as exc:
         MODEL_ERROR = str(exc)
@@ -170,7 +178,7 @@ def build_input_df(data: PredictInput, training_cols: list[str]) -> pd.DataFrame
 def build_priority_df(data: 'PriorityInput', training_cols: list) -> pd.DataFrame:
     """Feature engineering for the Order Priority Triage model (klasifiksai 2)."""
     sales         = data.sales
-    discount      = data.discount / 100.0
+    discount      = data.discount / 100.0 if data.discount > 1 else data.discount
     quantity      = data.quantity
     shipping_cost = data.shipping_cost
 
@@ -910,8 +918,9 @@ _PRIORITY_META = {
 
 
 @app.route("/api/predict/priority", methods=["POST"])
+@app.route("/predict-priority", methods=["POST"])
 def predict_priority():
-    """Order Priority Triage — predicts Critical / High / Medium / Low."""
+    """Order Priority Triage — predicts Urgent / Normal (or Critical / High / Medium / Low)."""
     ensure_models_loaded()
     if MODEL_ERROR:
         return jsonify({"detail": f"ML models tidak dapat dimuat: {MODEL_ERROR}"}), 503
@@ -929,24 +938,50 @@ def predict_priority():
         pred  = model_pri.predict(df_scaled)[0]
         proba = model_pri.predict_proba(df_scaled)[0]
 
-        pred_int       = int(pred)
-        priority_label = _PRIORITY_LABELS.get(pred_int, f"Class {pred_int}")
-        meta           = _PRIORITY_META.get(priority_label, {"message": "", "urgency": "medium"})
-        confidence     = round(float(max(proba)) * 100, 1)
+        pred_int   = int(pred)
+        confidence = round(float(max(proba)) * 100, 1)
 
-        # Build per-class probabilities dict
-        class_probs = {
-            _PRIORITY_LABELS.get(i, f"Class {i}"): round(float(p) * 100, 1)
-            for i, p in enumerate(proba)
-        }
+        if len(proba) == 2:
+            is_urgent   = bool(pred_int == 1)
+            urgent_prob = round(float(proba[1]) * 100, 1)
+            normal_prob = round(float(proba[0]) * 100, 1)
+            priority_label = "Urgent" if is_urgent else "Normal"
+            urgency = "critical" if is_urgent else "low"
+            message = (
+                "Pesanan ini berisiko tinggi / butuh penanganan VIP!"
+                if is_urgent else
+                "Pesanan reguler / penanganan standar operasional."
+            )
+            class_probs = {
+                "Urgent": urgent_prob,
+                "Normal": normal_prob,
+                "Critical": urgent_prob if is_urgent else 0.0,
+                "High": urgent_prob,
+                "Medium": normal_prob,
+                "Low": normal_prob if not is_urgent else 0.0,
+            }
+        else:
+            priority_label = _PRIORITY_LABELS.get(pred_int, f"Class {pred_int}")
+            meta = _PRIORITY_META.get(priority_label, {"message": "", "urgency": "medium"})
+            urgency = meta["urgency"]
+            message = meta["message"]
+            class_probs = {
+                _PRIORITY_LABELS.get(i, f"Class {i}"): round(float(p) * 100, 1)
+                for i, p in enumerate(proba)
+            }
+            is_urgent = urgency in ("critical", "high")
 
         return jsonify({
             "status":         "success",
+            "status_code":    200,
             "prediction":     pred_int,
+            "is_urgent":      is_urgent,
             "priority_label": priority_label,
-            "urgency":        meta["urgency"],
-            "message":        meta["message"],
+            "urgency":        urgency,
+            "message":        message,
             "confidence":     confidence,
+            "urgent_probability": round(float(proba[1]) * 100, 1) if len(proba) > 1 else confidence,
+            "normal_probability": round(float(proba[0]) * 100, 1) if len(proba) > 1 else round(100.0 - confidence, 1),
             "class_probs":    class_probs,
         })
     except ValidationError as e:

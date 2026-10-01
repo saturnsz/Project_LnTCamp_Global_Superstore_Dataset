@@ -18,7 +18,10 @@
   ];
 
   async function loadPartial(file) {
-    const res = await fetch(file);
+    let res = await fetch(file);
+    if (!res.ok && file.startsWith("/")) {
+      res = await fetch(file.slice(1));
+    }
     if (!res.ok) throw new Error("Failed to load: " + file);
     return res.text();
   }
@@ -36,6 +39,7 @@
 
       // Signal that DOM is ready for other scripts
       document.dispatchEvent(new Event("pagesLoaded"));
+      window.dispatchEvent(new Event("pagesLoaded"));
 
     } catch (err) {
       console.error("[Loader] Error loading pages:", err);

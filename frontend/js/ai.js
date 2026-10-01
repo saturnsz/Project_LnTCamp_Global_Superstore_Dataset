@@ -1,6 +1,6 @@
 'use strict';
 /* ===========================================
-   StoreIQ Admin — AI Predictor JS
+   StoreIQ Admin ΓÇö AI Predictor JS
    Unified form: Classification & Regression concurrent
    =========================================== */
 
@@ -46,10 +46,13 @@ function updateSubcategory(prefix) {
 }
 
 // === Initialize subcategories on page load ===
-window.addEventListener('pagesLoaded', function () {
-  // Unified form only
-  updateSubcategory('u');
-});
+function initAiSubcategories() {
+  if (document.getElementById('u-category')) updateSubcategory('u');
+  if (document.getElementById('p-category')) updateSubcategory('p');
+}
+window.addEventListener('pagesLoaded', initAiSubcategories);
+document.addEventListener('pagesLoaded', initAiSubcategories);
+document.addEventListener('DOMContentLoaded', initAiSubcategories);
 
 // === Get Form Values from unified form ===
 function getUnifiedFormValues() {
@@ -153,7 +156,7 @@ async function predictCombined() {
 
   try {
     await ensureServerAwake('unifiedPredictBtn', 'Membangunkan server AI...', 'Menganalisis...');
-    setBtnText('unifiedPredictBtn', '<span class="loading-spinner"></span> Memproses klasifikasi &amp; regresi...');
+    setBtnText('unifiedPredictBtn', '<span class="loading-spinner"></span> Menghitung estimasi &amp; status profit...');
 
     // Try combined endpoint first, fall back to concurrent separate calls
     var json;
@@ -171,45 +174,43 @@ async function predictCombined() {
 
       showClfResult(json.classification);
       showRegResult(json.regression, data);
-      var clfLabel = json.classification.prediction;
       var profitEst = json.regression.estimated_profit;
       var netStatus = json.regression.net_status || (profitEst > 0 ? 'PROFIT' : profitEst === 0 ? 'BREAK EVEN' : 'LOSS');
       showToast(
-        'Klasifikasi: ' + clfLabel + ' | Estimasi Profit: $' + profitEst.toFixed(2) + ' (' + netStatus + ')',
+        'Estimasi Profit: $' + profitEst.toFixed(2) + ' (' + netStatus + ')',
         json.classification.is_profit ? 'success' : 'error',
         4000
       );
 
     } catch (combinedErr) {
-      // Fallback: concurrent separate calls
-      console.warn('Combined endpoint failed, falling back to concurrent calls:', combinedErr.message);
-      setBtnText('unifiedPredictBtn', '<span class="loading-spinner"></span> Menjalankan prediksi paralel...');
+      // Fallback: call regression endpoint
+      console.warn('Combined endpoint failed, falling back to regression call:', combinedErr.message);
+      setBtnText('unifiedPredictBtn', '<span class="loading-spinner"></span> Menghitung via model regresi...');
 
-      var [clfRes, regRes] = await Promise.all([
-        fetchWithTimeout(API_BASE_URL + '/api/predict/classify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        }),
-        fetchWithTimeout(API_BASE_URL + '/api/predict/regress', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        }),
-      ]);
+      var regRes = await fetchWithTimeout(API_BASE_URL + '/api/predict/regress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
 
-      var clfJson = await clfRes.json();
       var regJson = await regRes.json();
-
-      if (!clfRes.ok || clfJson.status !== 'success') throw new Error(parseBackendError(clfJson));
       if (!regRes.ok || regJson.status !== 'success') throw new Error(parseBackendError(regJson));
 
-      showClfResult(clfJson);
+      var isProfitable = regJson.is_profitable;
+      var simulatedClf = {
+        prediction: regJson.net_status || (isProfitable ? 'PROFIT' : 'LOSS'),
+        is_profit: isProfitable,
+        confidence: 100.0,
+        rule_derived: true,
+        profit_probability: isProfitable ? 100.0 : 0.0,
+        loss_probability: isProfitable ? 0.0 : 100.0
+      };
+
+      showClfResult(simulatedClf);
       showRegResult(regJson, data);
-      var netStatus2 = regJson.net_status || (regJson.estimated_profit > 0 ? 'PROFIT' : regJson.estimated_profit === 0 ? 'BREAK EVEN' : 'LOSS');
       showToast(
-        'Klasifikasi: ' + clfJson.prediction + ' | Profit: $' + regJson.estimated_profit.toFixed(2),
-        clfJson.is_profit ? 'success' : 'error',
+        'Estimasi Profit: $' + regJson.estimated_profit.toFixed(2) + ' (' + regJson.net_status + ')',
+        isProfitable ? 'success' : 'error',
         4000
       );
     }
@@ -221,11 +222,11 @@ async function predictCombined() {
     showToast('Gagal melakukan prediksi: ' + msg, 'error');
     console.error(e);
   } finally {
-    setBtnLoading('unifiedPredictBtn', false, '<i class="fa-solid fa-bolt"></i> Prediksi Sekarang (Klasifikasi + Estimasi)');
+    setBtnLoading('unifiedPredictBtn', false, '<i class="fa-solid fa-bolt"></i> Hitung Estimasi &amp; Kelayakan Profit');
   }
 }
 
-// === Show Classification Result ===
+// === Show Classification Result (Derived Deterministically) ===
 function showClfResult(json) {
   var result = document.getElementById('clfResult');
   var icon = document.getElementById('clfResultIcon');
@@ -240,18 +241,20 @@ function showClfResult(json) {
   result.style.opacity = '1';
 
   icon.innerHTML = json.is_profit
-    ? '<i class="fa-solid fa-dollar-sign"></i>'
-    : '<i class="fa-solid fa-triangle-exclamation"></i>';
+    ? '<i class="fa-solid fa-circle-check"></i>'
+    : '<i class="fa-solid fa-circle-xmark"></i>';
   value.textContent = json.prediction;
   value.className = 'result-value ' + (json.is_profit ? 'profit-val' : 'loss-val');
-  conf.textContent = 'Keyakinan model: ' + json.confidence + '%';
+  conf.textContent = json.rule_derived
+    ? (json.is_profit ? 'Ambang terpenuhi: Profit > $0' : 'Ambang tidak terpenuhi: Profit Γëñ $0')
+    : 'Keyakinan: ' + json.confidence + '%';
 
-  profitPct.textContent = json.profit_probability + '%';
-  lossPct.textContent = json.loss_probability + '%';
+  if (profitPct) profitPct.textContent = json.is_profit ? '100%' : '0%';
+  if (lossPct) lossPct.textContent = json.is_profit ? '0%' : '100%';
 
   setTimeout(function () {
-    profitBar.style.width = json.profit_probability + '%';
-    lossBar.style.width = json.loss_probability + '%';
+    if (profitBar) profitBar.style.width = json.is_profit ? '100%' : '0%';
+    if (lossBar) lossBar.style.width = json.is_profit ? '0%' : '100%';
   }, 100);
 }
 
@@ -319,3 +322,123 @@ function showRegResult(json, inputData) {
 window.predictCombined   = predictCombined;
 window.syncSlider        = syncSlider;
 window.updateSubcategory = updateSubcategory;
+
+// ===================================================
+//   ORDER PRIORITY TRIAGE
+// ===================================================
+
+// === Get Priority Form Values ===
+function getPriorityFormValues() {
+  function get(id) { return document.getElementById('p-' + id); }
+  return {
+    sales:         parseFloat(get('sales').value)    || 0,
+    discount:      parseFloat(get('discount').value) || 0,
+    shipping_cost: parseFloat(get('shipping').value) || 0,
+    quantity:      parseInt(get('quantity').value)   || 1,
+    category:      get('category').value,
+    sub_category:  get('subcategory').value,
+    segment:       get('segment').value,
+    market:        get('market').value,
+    ship_mode:     get('shipmode').value,
+    region:        get('region').value,
+  };
+}
+
+// === Predict Priority ===
+async function predictPriority() {
+  var data = getPriorityFormValues();
+  if (!validateInputs(data)) return;
+
+  setBtnLoading('priorityPredictBtn', true);
+
+  try {
+    await ensureServerAwake('priorityPredictBtn', 'Membangunkan server AI...', 'Menganalisis prioritas...');
+    setBtnText('priorityPredictBtn', '<span class="loading-spinner"></span> Mendeteksi prioritas...');
+
+    var res = await fetchWithTimeout(API_BASE_URL + '/api/predict/priority', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    var json = await res.json();
+
+    if (!res.ok || json.status !== 'success') {
+      throw new Error(parseBackendError(json));
+    }
+
+    showPriorityResult(json);
+
+    var urgencyToastType = json.urgency === 'critical' || json.urgency === 'high' ? 'error' : 'success';
+    showToast(
+      'Prioritas Pesanan: ' + json.priority_label + ' (Keyakinan: ' + json.confidence + '%)',
+      urgencyToastType,
+      4000
+    );
+
+  } catch (e) {
+    var msg = (e.name === 'AbortError')
+      ? 'Request timeout (90 detik). Server AI mungkin overload, coba lagi.'
+      : e.message;
+    showToast('Gagal mendeteksi prioritas: ' + msg, 'error');
+    console.error(e);
+  } finally {
+    setBtnLoading('priorityPredictBtn', false, '<i class="fa-solid fa-magnifying-glass-chart"></i> Deteksi Prioritas Pesanan');
+  }
+}
+
+// === Show Priority Result ===
+var PRIORITY_ICONS = {
+  critical: 'fa-triangle-exclamation',
+  urgent:   'fa-triangle-exclamation',
+  high:     'fa-circle-chevron-up',
+  medium:   'fa-circle-minus',
+  low:      'fa-circle-check',
+  normal:   'fa-circle-check',
+};
+
+function showPriorityResult(json) {
+  var box        = document.getElementById('priorityResult');
+  var badge      = document.getElementById('priorityBadge');
+  var badgeIcon  = document.getElementById('priorityBadgeIcon');
+  var badgeLabel = document.getElementById('priorityBadgeLabel');
+  var confEl     = document.getElementById('priorityConfidence');
+  var msgEl      = document.getElementById('priorityMessage');
+
+  // Animate in
+  box.style.opacity = '1';
+  box.style.transition = 'opacity 0.4s ease';
+
+  // Apply urgency class to badge
+  badge.className = 'priority-badge priority-badge-' + json.urgency;
+  var iconClass = PRIORITY_ICONS[json.urgency] || 'fa-circle-question';
+  badgeIcon.className = 'fa-solid ' + iconClass;
+  badgeLabel.textContent = json.priority_label;
+  confEl.textContent = 'Keyakinan model: ' + json.confidence + '%';
+  msgEl.textContent = json.message;
+
+  // Per-class probability bars
+  var cp = json.class_probs || {};
+  var barMap = {
+    Urgent:   { bar: 'barUrgent',   pct: 'pctUrgent' },
+    Normal:   { bar: 'barNormal',   pct: 'pctNormal' },
+    Critical: { bar: 'barCritical', pct: 'pctCritical' },
+    High:     { bar: 'barHigh',     pct: 'pctHigh' },
+    Medium:   { bar: 'barMedium',   pct: 'pctMedium' },
+    Low:      { bar: 'barLow',      pct: 'pctLow' },
+  };
+
+  Object.keys(barMap).forEach(function (label) {
+    var pct  = cp[label] !== undefined ? cp[label] : 0;
+    var ids  = barMap[label];
+    var pctEl = document.getElementById(ids.pct);
+    var barEl = document.getElementById(ids.bar);
+    if (pctEl) pctEl.textContent = pct + '%';
+    setTimeout(function () {
+      if (barEl) barEl.style.width = pct + '%';
+    }, 100);
+  });
+}
+
+// === Expose priority functions ===
+window.predictPriority = predictPriority;

@@ -438,6 +438,11 @@ function showPriorityResult(json) {
       if (barEl) barEl.style.width = pct + '%';
     }, 100);
   });
+
+  var dbgEl = document.getElementById('priorityDebug');
+  if (dbgEl && json.debug) {
+    dbgEl.innerHTML = '<pre style="margin:0;">' + JSON.stringify(json.debug, null, 2) + '</pre>';
+  }
 }
 
 // === Expose priority functions ===

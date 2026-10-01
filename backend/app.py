@@ -178,13 +178,11 @@ def build_input_df(data: PredictInput, training_cols: list[str]) -> pd.DataFrame
 def build_priority_df(data: 'PriorityInput', training_cols: list) -> pd.DataFrame:
     """Feature engineering for the Order Priority Triage model (klasifiksai 2).
 
-    PRD spec: frontend slider kirim nilai 0-100 (integer persen).
-    Backend selalu membagi 100 untuk mendapatkan nilai desimal 0.0-1.0
-    sesuai skala training model.
+    Mendukung input persen (misal slider 10) maupun desimal (misal PRD 0.1).
     """
     sales         = data.sales
-    # Selalu bagi 100 — frontend (slider 0-100) sudah dikonfirmasi kirim persen integer
-    discount      = data.discount / 100.0
+    # Jika input > 1.0 (misal 10 atau 20), bagi 100; jika sudah desimal (0.1), gunakan langsung
+    discount      = (data.discount / 100.0) if data.discount > 1.0 else data.discount
     quantity      = data.quantity
     shipping_cost = data.shipping_cost
 
@@ -956,28 +954,38 @@ def predict_priority():
 
         if len(proba) == 2:
             # ── Binary classifier: kelas 0 = Normal, kelas 1 = Urgent ──
-            # Sesuai PRD: prediction=1 → Urgent, prediction=0 → Normal
             is_urgent   = bool(pred_int == 1)
             urgent_prob = round(float(proba[1]) * 100, 1)
             normal_prob = round(float(proba[0]) * 100, 1)
             priority_label = "Urgent" if is_urgent else "Normal"
-            # Gunakan urgency yang cocok dengan CSS class di frontend
             urgency = "urgent" if is_urgent else "normal"
             message = (
-                "Pesanan ini berisiko tinggi / butuh penanganan VIP!"
+                "Pesanan ini berisiko tinggi / butuh penanganan segera!"
                 if is_urgent else
-                "Pesanan reguler / penanganan standar operasional."
+                "Pesanan reguler — penanganan standar operasional."
             )
-            # class_probs: tampilkan Urgent vs Normal sesuai probabilitas asli model
-            # Bar Critical/High/Medium/Low diisi dari dua kelas binary secara proporsional
+            # class_probs: hanya dua kelas biner yang valid
             class_probs = {
-                "Urgent":   urgent_prob,
-                "Normal":   normal_prob,
-                "Critical": urgent_prob,
-                "High":     urgent_prob,
-                "Medium":   normal_prob,
-                "Low":      normal_prob,
+                "Urgent": urgent_prob,
+                "Normal": normal_prob,
             }
+            # Untuk kompatibilitas bar 4-kelas di frontend:
+            # Urgent → dibagi ke Critical (40%) + High (60%) secara proporsional
+            # Normal → dibagi ke Medium (40%) + Low (60%) secara proporsional
+            if is_urgent:
+                class_probs["Critical"] = round(urgent_prob * 0.4, 1)
+                class_probs["High"]     = round(urgent_prob * 0.6, 1)
+                class_probs["Medium"]   = round(normal_prob * 0.6, 1)
+                class_probs["Low"]      = round(normal_prob * 0.4, 1)
+            else:
+                class_probs["Critical"] = round(urgent_prob * 0.4, 1)
+                class_probs["High"]     = round(urgent_prob * 0.6, 1)
+                class_probs["Medium"]   = round(normal_prob * 0.6, 1)
+                class_probs["Low"]      = round(normal_prob * 0.4, 1)
+
+            # Hitung priority_score 0-100 (semakin tinggi = semakin urgent)
+            priority_score = urgent_prob
+
         else:
             # ── Multi-class classifier: Critical=0, High=1, Low=2, Medium=3 ──
             priority_label = _PRIORITY_LABELS.get(pred_int, f"Class {pred_int}")
@@ -989,8 +997,14 @@ def predict_priority():
                 for i, p in enumerate(proba)
             }
             is_urgent = urgency in ("critical", "high")
-            urgent_prob = round(float(proba[1]) * 100, 1) if len(proba) > 1 else confidence
+            urgent_prob = round(sum(
+                float(proba[i]) for i, lbl in _PRIORITY_LABELS.items()
+                if lbl in ("Critical", "High") and i < len(proba)
+            ) * 100, 1)
             normal_prob = round(100.0 - urgent_prob, 1)
+            priority_score = urgent_prob
+            class_probs["Urgent"] = urgent_prob
+            class_probs["Normal"] = normal_prob
 
         return jsonify({
             "status":             "success",
@@ -1003,7 +1017,22 @@ def predict_priority():
             "confidence":         confidence,
             "urgent_probability": urgent_prob,
             "normal_probability": normal_prob,
+            "priority_score":     priority_score,
             "class_probs":        class_probs,
+            "debug": {
+                "raw_pred":     pred_int,
+                "raw_proba":    [round(float(p) * 100, 1) for p in proba],
+                "n_classes":    len(proba),
+                "features_used": {
+                    "sales":               float(df['sales'].iloc[0]),
+                    "discount":            round(float(df['discount'].iloc[0]) * 100, 2),
+                    "quantity":            int(df['quantity'].iloc[0]),
+                    "shipping_cost":       float(df['shipping_cost'].iloc[0]),
+                    "shipping_cost_ratio": round(float(df['shipping_cost_ratio'].iloc[0]), 4),
+                    "discount_impact":     round(float(df['discount_impact'].iloc[0]), 2),
+                    "total_cost_spent":    round(float(df['total_cost_spent'].iloc[0]), 2),
+                }
+            },
         })
     except ValidationError as e:
         return jsonify(e.errors()), 400
